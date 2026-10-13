@@ -76,6 +76,61 @@ jobs:
           path: dist
       - uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
 
+  nuget-publish:
+    name: Publish .NET SDK to NuGet
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    needs: [python-package, linux, windows, windows-bindings]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: nuget
+      url: https://www.nuget.org/packages/Licentivo.SDK
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: sdk-linux
+          path: artifacts
+      - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
+        id: login
+        with:
+          user: spf86
+      - name: Upload the verified SDK package
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push artifacts/Licentivo.SDK.*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+
+  ruby-publish:
+    name: Publish Ruby SDK to RubyGems
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: rubygems
+      url: https://rubygems.org/gems/licentivo-sdk
+    permissions:
+      id-token: write
+    steps:
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8
+        with:
+          ruby-version: '3.4'
+          bundler: none
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: sdk-release
+          path: artifacts
+      - uses: rubygems/configure-rubygems-credentials@8674aee7f9f9055a8b771794d6f1e66b5fad36a9
+      - name: Upload source and verified platform gems
+        run: |
+          for package in artifacts/licentivo-sdk-*.gem; do
+            gem push "$package" --host https://rubygems.org
+          done
+
   linux:
     name: Build and install all nine clients on Linux
     runs-on: ubuntu-24.04
@@ -211,6 +266,12 @@ jobs:
           path: downloaded
       - name: Verify and combine assets
         run: python3 scripts/merge-release.py --input downloaded --out dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: sdk-release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
       - name: Publish the tagged release
         env:
           GH_TOKEN: ${{ github.token }}
