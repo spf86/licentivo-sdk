@@ -72,7 +72,8 @@ set_target_properties(consumer_cpp PROPERTIES CXX_STANDARD 17)
         command = ["cmake", "-S", folder, "-B", folder / "build", f"-DCMAKE_PREFIX_PATH={prefix}"]
         if os.name == "nt" and args.curl_root:
             curl = pathlib.Path(args.curl_root)
-            command += ["-G", "MinGW Makefiles", f"-DCURL_INCLUDE_DIR={curl / 'include'}", f"-DCURL_LIBRARY={curl / 'lib/libcurl.dll.a'}"]
+            generator = "Ninja" if shutil.which("ninja") else "MinGW Makefiles"
+            command += ["-G", generator, "-DCMAKE_C_COMPILER=gcc", "-DCMAKE_CXX_COMPILER=g++", f"-DCURL_INCLUDE_DIR={curl / 'include'}", f"-DCURL_LIBRARY={curl / 'lib/libcurl.dll.a'}"]
         run(*command, cwd=work)
         run("cmake", "--build", folder / "build", "--config", "Release", cwd=work)
         for name in ("consumer_c", "consumer_cpp"):
@@ -136,7 +137,9 @@ def main():
         if pathlib.Path(item["name"]).name != item["name"] or hashlib.sha256((packages / item["name"]).read_bytes()).hexdigest() != item["sha256"]:
             raise ValueError("Release asset checksum mismatch")
     (ROOT / ".local").mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="consumer-check-", dir=ROOT / ".local") as temp:
+    # Windows indexing/MSBuild can retain an output directory briefly after all
+    # consumer executables pass. A cleanup lock must not replace the test result.
+    with tempfile.TemporaryDirectory(prefix="consumer-check-", dir=ROOT / ".local", ignore_cleanup_errors=True) as temp:
         work = pathlib.Path(temp)
         if not args.native_only:
             languages = ("rust", "ruby", "c", "cpp") if args.bindings_only else ("go", "java", "c", "cpp", "csharp", "python", "javascript", "rust", "ruby")

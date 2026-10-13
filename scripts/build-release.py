@@ -104,7 +104,8 @@ def native_build(args, output, version, work):
     if shutil.which("cmake"):
         command = ["cmake", "-S", ROOT / "sdk", "-B", work / "native-build", "-DCMAKE_BUILD_TYPE=Release", f"-DCMAKE_INSTALL_PREFIX={native}"]
         if windows and curl_root:
-            command += ["-G", "MinGW Makefiles", f"-DCURL_INCLUDE_DIR={curl_root / 'include'}", f"-DCURL_LIBRARY={curl_root / 'lib/libcurl.dll.a'}"]
+            generator = "Ninja" if shutil.which("ninja") else "MinGW Makefiles"
+            command += ["-G", generator, "-DCMAKE_C_COMPILER=gcc", "-DCMAKE_CXX_COMPILER=g++", f"-DCURL_INCLUDE_DIR={curl_root / 'include'}", f"-DCURL_LIBRARY={curl_root / 'lib/libcurl.dll.a'}"]
         run(*command)
         run("cmake", "--build", work / "native-build", "--config", "Release", "--parallel", "2")
         vector = work / "native-build" / ("licentivo_vectors.exe" if windows else "licentivo_vectors")

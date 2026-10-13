@@ -6,12 +6,17 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the current VERSION after all package checks
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: sdk-${{ github.sha }}
+  group: sdk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,8 +35,13 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+          PUBLISH: ${{ inputs.publish || false }}
         run: |
           if [ "$IS_TAG" = true ]; then test "$RELEASE_TAG" = "v$(cat VERSION)"; fi
+          if [ "$PUBLISH" = true ]; then
+            git fetch --no-tags origin "refs/tags/v$(cat VERSION):refs/tags/v$(cat VERSION)"
+            git diff --exit-code "v$(cat VERSION)" -- '*.go' 'sdk/**/*.c' 'sdk/**/*.h' 'sdk/**/*.hpp' 'sdk/**/*.cpp' 'sdk/**/*.cs' 'sdk/**/*.java' 'sdk/**/*.rs' 'sdk/**/*.rb' 'sdk/**/*.py' 'sdk/**/*.mjs' 'sdk/**/Cargo.toml' 'sdk/**/build.rs'
+          fi
           python -m pip install build twine
           python -m build --sdist --wheel --outdir pypi-dist sdk/python
           python -m twine check pypi-dist/*
@@ -50,8 +60,8 @@ jobs:
 
   python-publish:
     name: Publish Python SDK to PyPI
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: python-package
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    needs: [python-package, linux, windows, windows-bindings]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
@@ -186,8 +196,8 @@ jobs:
 
   release:
     name: Publish versioned SDK release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: [linux, windows, windows-bindings]
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    needs: [python-package, linux, windows, windows-bindings]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -204,8 +214,9 @@ jobs:
       - name: Publish the tagged release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           GH_REPO: ${{ github.repository }}
         run: |
+          RELEASE_TAG="${RELEASE_TAG:-v$(cat VERSION)}"
           test "$RELEASE_TAG" = "v$(cat VERSION)"
           gh release create "$RELEASE_TAG" dist/* --verify-tag --title "Licentivo SDK $RELEASE_TAG" --notes-file "docs/releases/$(cat VERSION).md"
