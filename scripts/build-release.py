@@ -243,7 +243,9 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     (ROOT / ".local").mkdir(exist_ok=True)
     assets = []
-    with tempfile.TemporaryDirectory(prefix="release-build-", dir=ROOT / ".local") as temp:
+    # Keep build/verification failures visible; ignore only a Windows lock on
+    # temporary output cleanup after the verified assets have been written.
+    with tempfile.TemporaryDirectory(prefix="release-build-", dir=ROOT / ".local", ignore_cleanup_errors=True) as temp:
         work = pathlib.Path(temp)
         if not args.native_only and not args.bindings_only:
             assets.extend(source_bundle(language, output, version) for language in LANGUAGES)
