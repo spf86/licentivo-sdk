@@ -14,7 +14,13 @@ The application supplies its activation screen, protected business function and 
 
 ## Installation
 
-The [installation guide](https://www.licentivo.com/en/docs.html#sdk) lists verified registry availability. To install the website release in your application project:
+In your Node.js 20+ application project, install the pinned public package:
+
+```bash
+npm install @licentivo/sdk@0.10.0
+```
+
+Keep your package lockfile. The [installation guide](https://www.licentivo.com/en/docs.html#sdk) also provides the common installer and platform requirements. For an offline project, download and install the versioned archive:
 
 ```bash
 npm install ./licentivo-sdk-0.10.0.tgz

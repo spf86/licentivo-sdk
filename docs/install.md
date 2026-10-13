@@ -21,8 +21,7 @@ The offline directory must include the required package and `SHA256SUMS`. A chec
 ## Go
 
 ```bash
-go mod init example.com/my-application    # only if your project has no go.mod
-bash install-licentivo.sh go --version 0.10.0
+go get github.com/spf86/licentivo-sdk@v0.10.0
 ```
 
 Import `licentivo "github.com/spf86/licentivo-sdk"`. The website installer adds the version-pinned requirement and a local `replace` pointing at the verified standalone module. Retain the SDK source directory with your project, and update by rerunning the installer with a new version. The public Go module is installed with `go get github.com/spf86/licentivo-sdk@v0.10.0`; it contains only clients and examples.
@@ -32,7 +31,7 @@ Import `licentivo "github.com/spf86/licentivo-sdk"`. The website installer adds 
 ```bash
 python -m venv .venv
 # Activate your environment or use its Python executable directly.
-bash install-licentivo.sh python --version 0.10.0 --python .venv/bin/python
+python -m pip install "licentivo-sdk==0.10.0"
 ```
 
 Import `from licentivo import Client`. The package manager installs the declared `cryptography` dependency. Avoid replacing system Python packages; a virtual environment keeps application dependencies separate.
@@ -55,6 +54,8 @@ crates.io, run `cargo add licentivo@=0.10.0` in your application project.
 
 ## Ruby
 
+Install the public RubyGems version with `gem install licentivo-sdk --version 0.10.0`, or declare `gem 'licentivo-sdk', '= 0.10.0'` in your Gemfile and run `bundle install`. The registry selects a compatible platform gem when available. See the runtime and source-build requirements below.
+
 For a path dependency, add `gem 'licentivo-sdk', path: 'SDK_ROOT/sdk/ruby'` to your
 Gemfile, run `ruby SDK_ROOT/sdk/ruby/build_native.rb` once, then `require 'licentivo'`.
 The source launcher performs that native build for you. The console demonstration
@@ -72,12 +73,20 @@ availability and the exact versioned command. Ruby blocks encapsulate the actual
 ## Node.js
 
 ```bash
-bash install-licentivo.sh javascript --version 0.10.0
+npm install @licentivo/sdk@0.10.0
 ```
 
 Import `import {Client} from '@licentivo/sdk'`. Keep the generated package lockfile. The SDK runs in Node.js or a desktop application's Node main process; it is not a web-browser SDK. Install `undici` separately when selecting an explicit outbound proxy.
 
 ## C# / .NET
+
+Install from NuGet in your application project:
+
+```bash
+dotnet add package Licentivo.SDK --version 0.10.0
+```
+
+Import `using Licentivo;`. NuGet restores the declared cryptography dependency. For a downloaded package or an offline SDK source, the common installer below is also supported.
 
 Run the common installer in your project, selecting `csharp` and the `.csproj` if needed. It downloads `Licentivo.SDK.0.10.0.nupkg`, adds its local package source to the project's `NuGet.Config`, adds the version-pinned package reference and restores dependencies. Existing feeds and NuGet settings are retained; inherited user/parent sources continue to apply. It does not change global NuGet sources. If your project has intentionally cleared all sources, retain a feed containing `BouncyCastle.Cryptography`.
 
@@ -101,6 +110,17 @@ dotnet restore MyApp.csproj
 For application projects with private feeds, add the local SDK source to your existing project NuGet configuration instead of dropping the private feeds.
 
 ## Java
+
+Maven Central publishes `com.licentivo:licentivo-sdk:0.10.0`. Add the Maven dependency below directly to `pom.xml`; no local JAR installation is needed for this route. Gradle projects use:
+
+```groovy
+repositories { mavenCentral() }
+dependencies {
+    implementation 'com.licentivo:licentivo-sdk:0.10.0'
+}
+```
+
+For a downloaded SDK or an offline application project, use the installer and local JAR configuration:
 
 The installer downloads `licentivo-sdk-0.10.0.jar`. For Gradle:
 

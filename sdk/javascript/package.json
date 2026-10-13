@@ -1,10 +1,11 @@
 {
   "name": "@licentivo/sdk",
   "version": "0.10.0",
-  "description": "Licentivo licensing client for Node.js and desktop main processes",
+  "description": "Licentivo Node.js client with license activation, device credentials, pinned signatures, policy heartbeats, offline grants, floating seats and metered workflows",
+  "keywords": ["licensing", "sdk", "activation", "offline", "heartbeat", "entitlements", "metering"],
   "license": "MIT",
   "repository": { "type": "git", "url": "https://github.com/spf86/licentivo-sdk.git", "directory": "sdk/javascript" },
-  "homepage": "https://github.com/spf86/licentivo-sdk#readme",
+  "homepage": "https://www.licentivo.com/en/docs.html#sdk",
   "bugs": { "url": "https://github.com/spf86/licentivo-sdk/issues" },
   "type": "module",
   "exports": "./licentivo.mjs",

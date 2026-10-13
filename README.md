@@ -24,6 +24,21 @@ Metered business operations require an online connection. A pending confirmation
 
 The [live installation guide](https://www.licentivo.com/en/docs.html#sdk) shows each language's verified registry version and exact package-manager command. Use Go modules, pip/PyPI, npm, NuGet, Maven/Gradle, Cargo/crates.io or RubyGems where the version is available. C/C++ use the versioned CMake source/native packages. The website installers below cover all nine languages and also work with previously downloaded packages offline.
 
+Version **0.10.0** is available through these public routes:
+
+| Language | Install in your application project |
+| --- | --- |
+| Go | `go get github.com/spf86/licentivo-sdk@v0.10.0` |
+| Python | `python -m pip install "licentivo-sdk==0.10.0"` |
+| Node.js | `npm install @licentivo/sdk@0.10.0` |
+| C# | `dotnet add package Licentivo.SDK --version 0.10.0` |
+| Java | Maven dependency `com.licentivo:licentivo-sdk:0.10.0`; [Maven and Gradle declarations](sdk/java/README.md) |
+| Rust | `cargo add licentivo@=0.10.0` |
+| Ruby | `gem install licentivo-sdk --version 0.10.0`; Gemfile: `gem 'licentivo-sdk', '= 0.10.0'` |
+| C / C++ | [Download the package matching your compiler](https://github.com/spf86/licentivo-sdk/releases/tag/v0.10.0), set `CMAKE_PREFIX_PATH`, then `find_package(Licentivo 0.10 REQUIRED)` |
+
+These packages contain public client code. Installation does not require a Licentivo account or management API key; activating your application uses the product configuration and a customer's license. [Requirements, native dependencies and offline installation](docs/install.md).
+
 ## Run locally first
 
 Version **0.10.0** is distributed by the [Licentivo website](https://www.licentivo.com/en/docs.html#sdk) and the verified language-specific registries listed there. All nine languages use the same version, common installers, release manifest and SHA-256 checksums. A configured source ZIP from your workspace also works offline; follow [QUICKSTART.md](QUICKSTART.md).

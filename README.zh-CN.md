@@ -24,6 +24,21 @@
 
 [官网安装文档](https://www.licentivo.com/zh/docs.html#sdk) 按语言展示已验证的包仓库版本和安装命令。对应平台版本可用时，使用 Go modules、pip/PyPI、npm、NuGet、Maven/Gradle、Cargo/crates.io 或 RubyGems；C/C++ 使用版本 CMake 包。下面的官网安装器覆盖全部九种语言，也支持使用已下载的包离线安装。
 
+**0.10.0 已发布到公共平台**，在自己的应用项目中使用：
+
+| 语言 | 安装命令或构建依赖 |
+| --- | --- |
+| Go | `go get github.com/spf86/licentivo-sdk@v0.10.0` |
+| Python | `python -m pip install "licentivo-sdk==0.10.0"` |
+| Node.js | `npm install @licentivo/sdk@0.10.0` |
+| C# | `dotnet add package Licentivo.SDK --version 0.10.0` |
+| Java | Maven 依赖 `com.licentivo:licentivo-sdk:0.10.0`；[Maven / Gradle 配置](sdk/java/README.md) |
+| Rust | `cargo add licentivo@=0.10.0` |
+| Ruby | `gem install licentivo-sdk --version 0.10.0`；Gemfile 使用 `gem 'licentivo-sdk', '= 0.10.0'` |
+| C / C++ | [下载匹配编译器的包](https://github.com/spf86/licentivo-sdk/releases/tag/v0.10.0)，设置 `CMAKE_PREFIX_PATH`，再 `find_package(Licentivo 0.10 REQUIRED)` |
+
+安装 SDK 无需管理 API Key。实际激活应用时，使用自己的产品配置与客户授权码。各语言版本要求、原生依赖和离线安装见[安装说明](docs/install.md)。
+
 ## 统一安装
 
 九种语言共用 **0.10.0** 版本。官网按语言展示已验证的公共包仓库安装方式，同时提供安装包、发布清单和 SHA-256 校验文件。
