@@ -4,7 +4,7 @@ import argparse
 import importlib.util
 import pathlib
 import shutil
-from asset_contract import read_assets, required_names
+from asset_contract import missing_required_names, read_assets
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("build_release", ROOT / "scripts/build-release.py")
@@ -28,7 +28,7 @@ def merge(source, output):
             if name in assets and assets[name].read_bytes() != file.read_bytes():
                 raise ValueError(f"Conflicting build assets: {name}")
             assets[name] = file
-    missing = required_names(version) - assets.keys()
+    missing = missing_required_names(version, assets)
     if missing:
         raise ValueError(f"Missing client packages: {sorted(missing)}")
     output.mkdir(parents=True, exist_ok=True)

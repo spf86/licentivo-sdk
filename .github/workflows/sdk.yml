@@ -11,6 +11,10 @@ on:
         description: Publish the current VERSION after all package checks
         type: boolean
         default: false
+      publish_ruby:
+        description: Publish Ruby gems only after all package checks
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,7 +39,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
-          PUBLISH: ${{ inputs.publish || false }}
+          PUBLISH: ${{ inputs.publish || inputs.publish_ruby || false }}
         run: |
           if [ "$IS_TAG" = true ]; then test "$RELEASE_TAG" = "v$(cat VERSION)"; fi
           if [ "$PUBLISH" = true ]; then
@@ -106,24 +110,30 @@ jobs:
 
   ruby-publish:
     name: Publish Ruby SDK to RubyGems
-    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && inputs.publish)
-    needs: release
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && (inputs.publish || inputs.publish_ruby))
+    needs: [python-package, linux, windows, windows-bindings]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
       name: rubygems
       url: https://rubygems.org/gems/licentivo-sdk
     permissions:
+      contents: read
       id-token: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8
         with:
           ruby-version: '3.4'
           bundler: none
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          name: sdk-release
-          path: artifacts
+          pattern: sdk-*
+          path: downloaded
+      - name: Verify source and platform packages
+        run: python3 scripts/merge-release.py --input downloaded --out artifacts
       - uses: rubygems/configure-rubygems-credentials@8674aee7f9f9055a8b771794d6f1e66b5fad36a9
       - name: Upload source and verified platform gems
         run: |

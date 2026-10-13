@@ -17,6 +17,15 @@ def required_names(version):
     }
 
 
+def missing_required_names(version, present):
+    """Accept either exact RubyGems name for the tested Linux glibc platform."""
+    present = set(present)
+    missing = required_names(version) - present
+    if f"licentivo-sdk-{version}-x86_64-linux-gnu.gem" in present:
+        missing.discard(f"licentivo-sdk-{version}-x86_64-linux.gem")
+    return missing
+
+
 def read_assets(directory, version, complete=False):
     """Verify before copying; unlisted files and conflicting checksums fail closed."""
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
@@ -29,7 +38,8 @@ def read_assets(directory, version, complete=False):
     manifest = json.loads(raw)
     if manifest.get("version") != version or manifest.get("repository") != "spf86/licentivo-sdk":
         raise ValueError("Artifact manifest version or repository mismatch")
-    allowed = required_names(version) | {f"licentivo-native-{version}-windows-x64-msvc.zip"}
+    linux_gnu_gem = f"licentivo-sdk-{version}-x86_64-linux-gnu.gem"
+    allowed = required_names(version) | {f"licentivo-native-{version}-windows-x64-msvc.zip", linux_gnu_gem}
     records = {}
     for item in manifest["artifacts"]:
         name = item["name"]
@@ -54,6 +64,8 @@ def read_assets(directory, version, complete=False):
         raise ValueError("Manifest and SHA256SUMS disagree")
     if {file.name for file in directory.iterdir()} != set(expected) | {"SHA256SUMS"}:
         raise ValueError("Release directory contains unlisted files")
-    if complete and (missing := required_names(version) - records.keys()):
-        raise ValueError(f"Missing client packages: {sorted(missing)}")
+    if complete:
+        missing = missing_required_names(version, records)
+        if missing:
+            raise ValueError(f"Missing client packages: {sorted(missing)}")
     return manifest
