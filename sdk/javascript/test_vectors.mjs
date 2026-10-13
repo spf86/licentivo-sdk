@@ -1,0 +1,2 @@
+import {readFileSync} from 'node:fs';import {verifyLease} from './licentivo.mjs';
+const fixture=JSON.parse(readFileSync(process.argv[2]??'tests/lease-vectors.json','utf8'));for(const v of fixture.vectors){let ok;try{verifyLease(v.envelope,fixture.trusted_keys,v.product_id,v.device_id,v.now);ok=true;}catch{ok=false;}if(ok!==v.valid)throw Error(v.name);}console.log('JavaScript:',fixture.vectors.length,'lease vectors passed');

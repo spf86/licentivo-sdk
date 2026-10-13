@@ -1,0 +1,34 @@
+{
+  "name": "@licentivo/sdk",
+  "version": "0.10.0",
+  "description": "Licentivo licensing client for Node.js and desktop main processes",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/spf86/licentivo-sdk.git", "directory": "sdk/javascript" },
+  "homepage": "https://github.com/spf86/licentivo-sdk#readme",
+  "bugs": { "url": "https://github.com/spf86/licentivo-sdk/issues" },
+  "type": "module",
+  "exports": "./licentivo.mjs",
+  "files": [
+    "licentivo.mjs",
+    "feature-tasks.mjs",
+    "quickstart.mjs",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "app.mjs"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node test_vectors.mjs ../../tests/lease-vectors.json"
+  },
+  "peerDependencies": {
+    "undici": ">=6"
+  },
+  "peerDependenciesMeta": {
+    "undici": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "base_url": "https://www.licentivo.com",
+  "product_id": "REPLACE_WITH_PRODUCT_UUID",
+  "license_key": "REPLACE_WITH_ONCE_SHOWN_LICENSE_KEY",
+  "device_name": "SDK demo",
+  "trusted_keys": { "REPLACE_WITH_KEY_UUID": "REPLACE_WITH_BASE64URL_PUBLIC_KEY" },
+  "cache_path": ".local/demo.lease.json",
+  "allow_http": false
+}

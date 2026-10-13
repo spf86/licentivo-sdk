@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Stage a verified SDK release for website deployment; no upload or service access."""
+import argparse
+import hashlib
+import json
+import pathlib
+import shutil
+import tempfile
+from asset_contract import LANGUAGES, read_assets
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
+def publish(packages, output):
+    version = (ROOT / "VERSION").read_text().strip()
+    manifest = read_assets(packages, version, complete=True)
+    if packages == output or packages in output.parents or output in packages.parents:
+        raise ValueError("Website destination and input assets must be separate directories")
+    if output.is_symlink():
+        raise ValueError("Website destination cannot be a symlink")
+    releases = output / "releases"
+    target = releases / ("v" + version)
+    if releases.is_symlink() or target.is_symlink():
+        raise ValueError("Release destination cannot be a symlink")
+    if target.exists():
+        previous = read_assets(target, version, complete=True)
+        if previous != manifest:
+            raise ValueError("Published versions are immutable; increase VERSION for changed assets")
+    latest = output / "latest.json"
+    if latest.is_symlink():
+        raise ValueError("Latest metadata cannot be a symlink")
+    if latest.exists():
+        current = json.loads(latest.read_text())["version"]
+        if tuple(map(int, current.split('.'))) > tuple(map(int, version.split('.'))):
+            raise ValueError("Cannot move the latest release to an older version")
+    releases.mkdir(parents=True, exist_ok=True)
+    if not target.exists():
+        with tempfile.TemporaryDirectory(prefix="sdk-stage-", dir=output) as temporary:
+            stage = pathlib.Path(temporary) / ("v" + version)
+            stage.mkdir()
+            for name in [item["name"] for item in manifest["artifacts"]] + ["manifest.json", "SHA256SUMS"]:
+                shutil.copyfile(packages / name, stage / name)
+            read_assets(stage, version, complete=True)
+            stage.rename(target)
+    for name in ("install.ps1", "install.sh"):
+        destination = output / name
+        if destination.is_symlink():
+            raise ValueError("Installer destination cannot be a symlink")
+        temporary = output / (name + ".new")
+        if temporary.exists() or temporary.is_symlink():
+            raise ValueError("Stale installer staging file; inspect it before retrying")
+        shutil.copyfile(target / name, temporary)
+        temporary.replace(destination)
+    metadata = {
+        "version": version, "languages": list(LANGUAGES),
+        "release_path": f"/assets/sdk/releases/v{version}",
+        "manifest_sha256": hashlib.sha256((target / "manifest.json").read_bytes()).hexdigest(),
+        "tested_platforms": ["windows-x64", "linux-x64"],
+        "registry_publication": "pending",
+    }
+    latest.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    print(f"Staged {len(manifest['artifacts'])} verified assets for website release v{version}: {target}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--packages", required=True, type=pathlib.Path)
+    parser.add_argument("--output", required=True, type=pathlib.Path, help="Website assets/sdk directory")
+    args = parser.parse_args()
+    publish(args.packages.absolute(), args.output.absolute())

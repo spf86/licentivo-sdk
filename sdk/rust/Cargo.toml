@@ -1,0 +1,17 @@
+[package]
+name = "licentivo"
+version = "0.10.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+description = "Licentivo application licensing: activation, verified grants and metered operations"
+repository = "https://github.com/spf86/licentivo-sdk"
+readme = "README.md"
+include = ["src/**", "examples/**", "build.rs", "Cargo.toml", "README.md", "LICENSE", "NOTICE", "native/**"]
+
+[dependencies]
+serde_json = "1.0"
+
+[build-dependencies]
+cc = "1.2"
+pkg-config = "0.3"

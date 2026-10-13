@@ -1,0 +1,211 @@
+name: SDK packages
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  python-package:
+    name: Build and verify Python registry distributions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Validate the version and build distributions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          if [ "$IS_TAG" = true ]; then test "$RELEASE_TAG" = "v$(cat VERSION)"; fi
+          python -m pip install build twine
+          python -m build --sdist --wheel --outdir pypi-dist sdk/python
+          python -m twine check pypi-dist/*
+      - name: Test the built wheel in a fresh consumer
+        run: |
+          python -m venv python-consumer
+          python-consumer/bin/python -m pip install pypi-dist/*.whl
+          cp sdk/python/test_vectors.py python-consumer/verify.py
+          python-consumer/bin/python python-consumer/verify.py tests/lease-vectors.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pypi-distributions
+          path: pypi-dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  python-publish:
+    name: Publish Python SDK to PyPI
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: python-package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/licentivo-sdk/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: pypi-distributions
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+
+  linux:
+    name: Build and install all nine clients on Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev cmake unzip ruby ruby-dev pkg-config
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          python -m pip install 'setuptools>=68' wheel 'cryptography>=44.0.1,<49'
+      - name: Validate the release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: test "$RELEASE_TAG" = "v$(cat VERSION)"
+      - name: Build and verify packages
+        run: python scripts/build-release.py --out dist
+      - name: Install packages into fresh consumer projects
+        run: python scripts/test-install.py --packages dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sdk-linux
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    name: Build and link C and C++ on Windows MSVC
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Prepare native build dependencies
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install curl:x64-windows
+          if ($LASTEXITCODE -ne 0) { throw 'vcpkg dependency installation failed' }
+          "CMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
+          "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> $env:GITHUB_PATH
+      - name: Build and verify native package
+        run: python scripts/build-release.py --out dist --native-only
+      - name: Install package into independent C and C++ projects
+        run: python scripts/test-install.py --packages dist --native-only
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sdk-windows
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-bindings:
+    name: Build and install Rust, Ruby, C and C++ on Windows GNU
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8
+        with:
+          ruby-version: '3.4'
+          bundler: none
+      - name: Prepare GNU Rust and matching curl
+        shell: pwsh
+        run: |
+          rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal
+          rustup default stable-x86_64-pc-windows-gnu
+          if ($LASTEXITCODE -ne 0) { throw 'Rust GNU setup failed' }
+          $archive=Join-Path $env:RUNNER_TEMP 'curl-sdk.zip'
+          Invoke-WebRequest https://curl.se/windows/dl-8.22.0_3/curl-8.22.0_3-win64-mingw.zip -OutFile $archive
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne 'F38B0AC2E3A280FD414B607C874A21E6DD4D1ED0E2AE622AFBF0020917446561') { throw 'curl checksum mismatch' }
+          Expand-Archive $archive -DestinationPath (Join-Path $env:RUNNER_TEMP 'curl-sdk')
+          $curlRoot=Join-Path $env:RUNNER_TEMP 'curl-sdk/curl-8.22.0_3-win64-mingw'
+          "LICENTIVO_CURL_ROOT=$curlRoot" >> $env:GITHUB_ENV
+          "$curlRoot/bin" >> $env:GITHUB_PATH
+      - name: Build and verify Windows binding packages
+        run: python scripts/build-release.py --bindings-only --out dist
+      - name: Install bindings and native libraries in fresh projects
+        run: python scripts/test-install.py --bindings-only --packages dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: sdk-windows-bindings
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish versioned SDK release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: [linux, windows, windows-bindings]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: sdk-*
+          path: downloaded
+      - name: Verify and combine assets
+        run: python3 scripts/merge-release.py --input downloaded --out dist
+      - name: Publish the tagged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          test "$RELEASE_TAG" = "v$(cat VERSION)"
+          gh release create "$RELEASE_TAG" dist/* --verify-tag --title "Licentivo SDK $RELEASE_TAG" --notes-file "docs/releases/$(cat VERSION).md"

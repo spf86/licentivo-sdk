@@ -1,0 +1,11 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.licentivo</groupId><artifactId>licentivo-sdk</artifactId><version>0.10.0</version>
+  <name>Licentivo SDK</name><description>Java 17+ licensing client: license activation and private device credentials, pinned signature verification, feature access, policy heartbeats, offline grants, floating seats and metered reserve/commit/cancel workflows. Includes runnable examples and installation documentation.</description>
+  <url>https://github.com/spf86/licentivo-sdk</url>
+  <licenses><license><name>MIT License</name><url>https://opensource.org/license/mit</url><distribution>repo</distribution></license></licenses>
+  <developers><developer><id>spf86</id><name>Licentivo</name><url>https://github.com/spf86</url><organization>Licentivo</organization><organizationUrl>https://www.licentivo.com</organizationUrl></developer></developers>
+  <scm><url>https://github.com/spf86/licentivo-sdk</url><connection>scm:git:https://github.com/spf86/licentivo-sdk.git</connection></scm>
+  <properties><maven.compiler.release>17</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>
+  <build><sourceDirectory>src</sourceDirectory><resources><resource><directory>..</directory><targetPath>META-INF</targetPath><includes><include>LICENSE</include><include>NOTICE</include></includes></resource></resources><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.13.0</version></plugin></plugins></build>
+</project>

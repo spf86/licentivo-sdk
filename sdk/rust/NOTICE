@@ -1,0 +1,17 @@
+Licentivo client SDKs
+Copyright (c) 2026 spf86 and Licentivo contributors
+Project: https://github.com/spf86/licentivo-sdk
+
+The MIT license applies to the Licentivo client SDK code, examples and
+installation tools. The licensing server and administration application are
+separate software and are not included in this SDK distribution.
+
+Bundled third-party source retains its original license:
+- cJSON: see sdk/c/vendor/cJSON-LICENSE (or c/vendor/cJSON-LICENSE).
+- Monocypher and its Ed25519 extension: see
+  sdk/c/vendor/Monocypher-LICENCE.md (or c/vendor/Monocypher-LICENCE.md).
+Native packages include these files in the licenses directory.
+
+External dependencies such as libcurl, OpenSSL, cryptography, undici and
+BouncyCastle retain their own licenses. Their installation is handled by
+the corresponding package manager or the target system.
