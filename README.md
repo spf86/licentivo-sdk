@@ -132,3 +132,9 @@ The tool validates the common `VERSION`, creates nine source ZIPs and installabl
 To stage the verified assets for the website, run `python scripts/publish-website.py --packages dist --output WEBSITE_ASSETS/sdk`. This verifies all nine clients and both tested platforms, refuses missing/tampered packages, and keeps published versions immutable. Deploy the staged assets with the website. GitHub Actions build the clients in independent consumer projects and publish tagged releases after those checks pass. No release tool contacts a licensing service, database or payment provider. See [the maintainer release guide](docs/releasing.md).
 
 Client code and installation tools: [MIT](LICENSE). Bundled third-party components retain their own licenses; see [NOTICE](NOTICE).
+
+## License validity
+
+Set validity days when issuing each timed or trial license, not in its authorization policy. Supply `duration_days` from 1 to 36500; perpetual licenses omit it. Counting starts at the first successful activation. Applying a policy preserves the license term, expiry and renewals. Existing SDK 0.10.0 clients enforce the signed expiry without code or configuration changes.
+
+[Console and management API documentation](https://www.licentivo.com/en/docs.html#management)

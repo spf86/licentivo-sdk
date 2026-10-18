@@ -144,3 +144,9 @@ Rust metered calls return `Execution<T>`; a retry that skips business returns `A
 | Import/build dependency failure | Use the installed language version and correct architecture; see the environment table. Include the support code and request ID, never your license key, private credential or management API key. |
 
 After this path, `sdk/README.md` is the reference for offline imports, transfer, floating seats, version/maintenance rules, status callbacks and low-level SDK methods. HTTP request/response documentation is a protocol reference for custom clients, not a prerequisite for these nine SDKs. macOS code exists but Mac/ARM physical acceptance is pending; there is no dedicated Android/iOS SDK yet.
+
+## License validity
+
+Set validity days when issuing each timed or trial license, not in its authorization policy. Supply `duration_days` from 1 to 36500; perpetual licenses omit it. Counting starts at the first successful activation. Applying a policy preserves the license term, expiry and renewals. Existing SDK 0.10.0 clients enforce the signed expiry without code or configuration changes.
+
+[Console and management API documentation](https://www.licentivo.com/en/docs.html#management)

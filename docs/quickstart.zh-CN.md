@@ -142,3 +142,9 @@ SDK 自动预留、执行回调、成功后确认、失败时取消，并在私�
 HTTP 协议、完整演示、离线文件、换机、浮动席位和维护期留在进阶文档。macOS 实机及 ARM64 验收尚未完成，Android/iOS 专用适配器暂未提供。
 
 Rust / Ruby 的 Windows 源码演示需要 `-CurlRoot C:/path/to/curl`，或设置 `LICENTIVO_CURL_ROOT`。Rust 使用 GNU 目标和匹配的现代 SEH MinGW 编译器。两个 SDK 都含控制台应用演示：状态、普通导出、计次导出、联网刷新和主动换机。Rust 计次返回 `Execution::AlreadyCompleted`、Ruby 返回 `result.replay?` 时，本次跳过业务，应用应从自己的任务记录中读取已有结果。
+
+## 许可证有效期
+
+有效天数在单张或批量签发许可证时填写，不在授权策略中设置。固定期限和试用许可证填写 `duration_days`（1–36500 天），永久授权不填。从首次成功激活开始计时；应用策略保留原期限、到期日和续期权益。现有 SDK 0.10.0 按签名中的到期时间校验，无需更改代码或配置。
+
+[控制台与管理 API 说明](https://www.licentivo.com/zh/docs.html#management)

@@ -97,3 +97,9 @@ product.json 只含产品编号、地址、公钥等可分发设置。客户授�
 Windows x64、Linux x64 有实际运行验收。C/C++ 按编译器 ABI 分包；Ruby 平台 gem 无需安装 C 编译器。Rust Windows 使用 GNU/SEH MinGW 与匹配的 libcurl。macOS、ARM64 仍待实机验收，当前没有 Android/iOS 专用 SDK。
 
 采用 [MIT](LICENSE)；第三方组件保留各自许可，见 [NOTICE](NOTICE)。
+
+## 许可证有效期
+
+有效天数在单张或批量签发许可证时填写，不在授权策略中设置。固定期限和试用许可证填写 `duration_days`（1–36500 天），永久授权不填。从首次成功激活开始计时；应用策略保留原期限、到期日和续期权益。现有 SDK 0.10.0 按签名中的到期时间校验，无需更改代码或配置。
+
+[控制台与管理 API 说明](https://www.licentivo.com/zh/docs.html#management)
