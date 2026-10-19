@@ -1,57 +1,85 @@
 # Licentivo Java SDK
 
-Add software license activation and protected features to a Java 17+ application. The SDK uses the JDK HTTP client and cryptographic APIs; no customer-side management key is required.
+Add license activation and real feature permissions to your own application.
+The SDK handles requests, machine identity, pinned signatures, private credentials,
+cache and policy heartbeats. Your app supplies activation input and business code.
 
-## Features and workflow
+## Install into your project
 
-- Activate a customer license, derive device identity, store a private device credential and restore it after restart.
-- Verify grants with pinned signing keys and check expiry and feature access before invoking your business callback.
-- Schedule policy heartbeats, use verified offline grants when permitted, and attempt to return floating seats on close.
-- Reserve metered usage, execute the callback, commit success or cancel failure, and persist pending confirmations.
-- Read local status, refresh or deactivate explicitly, and exchange offline activation files.
+Requirements: JDK 17+; JDK HTTP and Ed25519 APIs.
 
-The application provides the activation screen, business function, stable operation ID and durable business result. If a process crashes during a metered callback, inspect its actual result before resolving settlement. A pending commit retries confirmation without rerunning the business function. Metering requires a network connection.
+Install the public SDK package in your existing application project:
 
-## Installation
+```gradle
+implementation 'com.licentivo:licentivo-sdk:0.11.0'
+```
 
-Add this dependency to your application's `pom.xml` for Maven Central:
+Add the line above to your Gradle dependencies and enable `mavenCentral()`
+in your repositories. For Maven, add this dependency to `pom.xml`:
 
 ```xml
 <dependency>
   <groupId>com.licentivo</groupId>
   <artifactId>licentivo-sdk</artifactId>
-  <version>0.10.0</version>
+  <version>0.11.0</version>
 </dependency>
 ```
 
-Or configure Gradle:
+No SDK source download, extraction or local path dependency is required.
 
-```groovy
-repositories { mavenCentral() }
-dependencies { implementation 'com.licentivo:licentivo-sdk:0.10.0' }
-```
+## Initialize from product settings in code
 
-The [live installation guide](https://www.licentivo.com/en/docs.html#sdk) confirms registry availability and provides the website/local JAR alternative. Keep version `0.10.0` pinned in your application.
+In Console > Products, copy your Product ID. Click that product's **Signing public
+keys** and copy every key ID/public key pair into trustedKeys / trusted_keys below.
+Replace the three YOUR_ placeholders. Quick integration can generate the public
+code constants for your own product. No configuration file is needed. The SDK
+defaults to `https://www.licentivo.com`; a software version is optional unless
+your policy uses version/maintenance controls. Each product has its own signing
+keys; customers of the same product share its public verification pins.
 
-## First integration
-
-Download `product.json` from **Quick integration** in your Licentivo workspace. It contains the product UUID, HTTPS server and pinned public keys. Read the customer's key from your activation interface; pass an empty string on later starts to restore the saved device credential.
+Read customerKey / customer_key from your activation form. Accept a customer's
+ordinary license key or temporary transfer code; never use a vendor management key.
 
 ```java
 import licentivo.Client;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.*;
+import java.util.Map;
 
-try (var client = Client.openWithLicense("product.json", customerKey,
+var trustedKeys = Map.of("YOUR_KEY_ID", "YOUR_PUBLIC_KEY");
+try (var client = Client.openProduct("YOUR_PRODUCT_ID", trustedKeys, customerKey,
         error -> System.err.println(error.getMessage()))) {
-    client.runFeature("export", () ->
-        Files.writeString(Path.of("report.txt"), "Your report\n"));
-    // Keep client alive until your actual application exits.
+    client.runFeature("export", () -> Files.writeString(Path.of("report.csv"), "Your report\n"));
+    // Real application: retain client until application shutdown.
 }
 ```
 
-For a configured metered feature, call `client.runMeteredFeature("export", 1, persistentJobId, () -> exportReport())`. Closing a device-bound client stops heartbeats and retains the binding; explicitly deactivate for a customer-requested device release.
+Place the feature gate in the actual button/shortcut/command business handler.
+Denied operations do not invoke the callback. After first activation, pass an
+empty key to restore the saved credential for this product and user. Ordinary
+close retains device registration; `deactivate` is for explicit device release.
+Floating close attempts to return its seat, with server expiry as fallback.
+Use `refreshOnline` to force an online check. Offline behavior follows the signed
+policy and expiry; a confirmed server denial blocks protected features.
 
-[Working examples](https://github.com/spf86/licentivo-sdk/tree/main/sdk/java/src/licentivo) · [All nine languages](https://www.licentivo.com/en/docs.html#sdk)
+## Metering and advanced operations
 
-Do not distribute customer keys, cached grants, device credentials or vendor management API keys. Client code is MIT licensed.
+Use `runMeteredFeature` for a configured usage counter, passing a distinct stable job ID,
+quantity and your business callback. The SDK reserves, executes, commits/cancels
+and records pending settlement. A known successful job retry settles without
+rerunning business. Persist the actual business result; after a crash during a
+callback, inspect its outcome and pass the truth to `resolveMeteredFeature`. The SDK does not
+guess or replay an uncertain business action. Metering requires a network.
+
+The lower-level reserve/commit/cancel and immediate-consume methods remain
+available. Offline request/response files are a separate disconnected-computer
+workflow. For private deployments, proxy settings or app versions, construct the
+language's SDK configuration object directly in code and use its lower-level
+constructor/start API. TLS and public-key pinning remain enabled.
+
+Java methods are synchronous; run network work off the Swing event thread. Client implements AutoCloseable. Online errors can be Client.APIException; local, signature and business errors can be other exceptions.
+
+Close with `close` at application shutdown. Do not distribute test activation
+keys, machine credentials, cached grants or vendor management API keys.
+See [QUICKSTART.md](https://www.licentivo.com/en/docs.html#quickstart) and the
+[small desktop example](https://www.licentivo.com/en/docs.html#example).
+MIT licensed; bundled dependencies retain their licenses (NOTICE).

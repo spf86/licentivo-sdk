@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(licentivo_sdk VERSION 0.10.0 LANGUAGES C CXX)
+project(licentivo_sdk VERSION 0.11.0 LANGUAGES C CXX)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 set(CMAKE_C_STANDARD 11)

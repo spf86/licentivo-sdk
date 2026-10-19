@@ -1,6 +1,12 @@
 use licentivo::{Client, Error, Execution};
 use std::io::{self, Write};
 
+// BEGIN LICENTIVO PRODUCT
+// Copy Product ID and all key ID/public key pairs from Console > Products > Signing public keys.
+const PRODUCT_ID: &str = "YOUR_PRODUCT_ID";
+const TRUSTED_KEYS_JSON: &str = r#"{"YOUR_KEY_ID":"YOUR_PUBLIC_KEY"}"#;
+// END LICENTIVO PRODUCT
+
 fn ask(label: &str) -> Result<String, Error> {
     print!("{label}"); io::stdout().flush()?;
     let mut value = String::new(); io::stdin().read_line(&mut value)?;
@@ -12,18 +18,17 @@ fn export_report() -> Result<(), Error> {
     Ok(())
 }
 fn run() -> Result<(), Error> {
-    let config = std::env::args().nth(1).unwrap_or_else(|| "product.json".into());
     let key = std::env::var("LICENTIVO_LICENSE_KEY").unwrap_or_default();
-    let mut client = match Client::open_with_license(&config, &key) {
+    let mut client = match Client::open_product(PRODUCT_ID, TRUSTED_KEYS_JSON, &key) {
         Ok(client) => client,
         Err(error) => {
             eprintln!("{error}");
             let key = ask("Customer activation key (not a management API key): ")?;
-            Client::open_with_license(&config, &key)?
+            Client::open_product(PRODUCT_ID, TRUSTED_KEYS_JSON, &key)?
         }
     };
     loop {
-        println!("\n1 Status | 2 Export | 3 Metered export | 4 Refresh | 5 Transfer device | 0 Quit");
+        println!("\n1 Status | 2 Export | 3 Metered export | 4 Refresh | 5 Transfer device | 6 Pro report | 0 Quit");
         let result = match ask("> ")?.as_str() {
             "0" | "" => break,
             "1" => client.status().map(|status| println!("{status}")),
@@ -34,6 +39,7 @@ fn run() -> Result<(), Error> {
                     if let Execution::AlreadyCompleted = result { println!("Existing job confirmed; export was not repeated"); }
                 })
             }
+            "6" => client.run_feature("pro", || { std::fs::write("pro-report.txt", "Sales total: 40.00\n")?; Ok(()) }),
             "4" => client.refresh_online(),
             "5" => {
                 if ask("Type TRANSFER to explicitly unbind this device: ")? == "TRANSFER" {

@@ -1,6 +1,12 @@
 use licentivo::{Client, Error};
 use std::{env, fs};
 
+// BEGIN LICENTIVO PRODUCT
+// Copy Product ID and all key ID/public key pairs from Console > Products > Signing public keys.
+const PRODUCT_ID: &str = "YOUR_PRODUCT_ID";
+const TRUSTED_KEYS_JSON: &str = r#"{"YOUR_KEY_ID":"YOUR_PUBLIC_KEY"}"#;
+// END LICENTIVO PRODUCT
+
 fn setting(name: &str, fallback: &str) -> String {
     env::var(name).ok().filter(|value| !value.is_empty()).unwrap_or_else(|| fallback.into())
 }
@@ -13,8 +19,8 @@ fn export_report(path: &str) -> Result<(), Error> {
 
 fn run() -> Result<(), Error> {
     // A GUI supplies the activation input. Later starts use an empty key.
-    let mut client = Client::open_with_license(
-        setting("LICENTIVO_CONFIG", "product.json"),
+    let mut client = Client::open_product(
+        PRODUCT_ID, TRUSTED_KEYS_JSON,
         &setting("LICENTIVO_LICENSE_KEY", ""),
     )?;
     let feature = setting("LICENTIVO_FEATURE", "export");

@@ -1,81 +1,73 @@
 # Licentivo Node.js SDK
 
-Add software licensing to a Node.js or desktop application's main process. Use Node.js 20+; browser JavaScript cannot read the machine identity required by this SDK.
+Add license activation and real feature permissions to your own application.
+The SDK handles requests, machine identity, pinned signatures, private credentials,
+cache and policy heartbeats. Your app supplies activation input and business code.
 
-## Features
+## Install into your project
 
-- Activates customer licenses, derives device identity, saves a private device credential and restores authorization after restart.
-- Verifies signed grants against pinned keys and checks expiry and feature access before invoking your callback.
-- Schedules policy heartbeats, supports permitted offline use and attempts floating-seat cleanup on close.
-- Wraps metered operations with reserve, business execution, commit/cancel and a private pending-task journal.
-- Provides local status decisions, explicit refresh/deactivation, offline activation file exchange and structured request errors.
+Requirements: Node.js 20+; use the desktop main process or a Node service.
 
-The application supplies its activation screen, protected business function and durable business results. Keep vendor management keys on your backend.
+Install the public SDK package in your existing application project:
 
-## Installation
-
-In your Node.js 20+ application project, install the pinned public package:
-
-```bash
-npm install @licentivo/sdk@0.10.0
+```sh
+npm install @licentivo/sdk@0.11.0
 ```
 
-Keep your package lockfile. The [installation guide](https://www.licentivo.com/en/docs.html#sdk) also provides the common installer and platform requirements. For an offline project, download and install the versioned archive:
+No SDK source download, extraction or local path dependency is required.
 
-```bash
-npm install ./licentivo-sdk-0.10.0.tgz
-```
+## Initialize from product settings in code
 
-Download that package from the [versioned release](https://www.licentivo.com/assets/sdk/releases/v0.10.0/licentivo-sdk-0.10.0.tgz), or install local sources with `npm install ./sdk/javascript`. Import `@licentivo/sdk` after either method. QUICKSTART.md at the configured ZIP root contains a runnable starter.
+In Console > Products, copy your Product ID. Click that product's **Signing public
+keys** and copy every key ID/public key pair into trustedKeys / trusted_keys below.
+Replace the three YOUR_ placeholders. Quick integration can generate the public
+code constants for your own product. No configuration file is needed. The SDK
+defaults to `https://www.licentivo.com`; a software version is optional unless
+your policy uses version/maintenance controls. Each product has its own signing
+keys; customers of the same product share its public verification pins.
 
-## First integration
+Read customerKey / customer_key from your activation form. Accept a customer's
+ordinary license key or temporary transfer code; never use a vendor management key.
 
-Download a configured `sdk-demo.json` from the dashboard's Quick integration page.
-That file contains a license key, product ID and trusted public keys, never a
-vendor management API key.
-
-```js
+```javascript
 import {Client} from '@licentivo/sdk';
 import {writeFile} from 'node:fs/promises';
-const client = await Client.openWithLicense('product.json', customerKey, console.error);
+
+const trustedKeys = {'YOUR_KEY_ID': 'YOUR_PUBLIC_KEY'};
+const client = await Client.openProduct('YOUR_PRODUCT_ID', trustedKeys, customerKey);
 try {
-  await client.runFeature('export', () => writeFile('report.txt', 'Report\n'));
-  // Keep client alive until your actual application exits.
-} finally {
-  await client.close();
-}
+  await client.runFeature('export', () => writeFile('report.csv', 'Your report\n'));
+  // Real application: keep client alive through the main loop.
+} finally { await client.close(); }
 ```
 
-For configured metered features, pass your business callback to the SDK:
+Place the feature gate in the actual button/shortcut/command business handler.
+Denied operations do not invoke the callback. After first activation, pass an
+empty key to restore the saved credential for this product and user. Ordinary
+close retains device registration; `deactivate` is for explicit device release.
+Floating close attempts to return its seat, with server expiry as fallback.
+Use `refreshOnline` to force an online check. Offline behavior follows the signed
+policy and expiry; a confirmed server denial blocks protected features.
 
-```js
-await client.runMeteredFeature('export', 1, persistentJobID, exportReport);
-```
+## Metering and advanced operations
 
-The SDK handles reserve, execution, commit/cancel and a private task journal.
-Replaying a pending commit, including after restart, retries only confirmation.
-If the process crashes during the callback, inspect your durable result before
-`await client.resolveMeteredFeature(jobID, succeeded)`; it never reruns business.
-Use different job IDs across processes and retain records while retries remain
-possible. Lower-level reserve/commit/cancel remain for custom workflows.
-`consume()` charges immediately and is for an
-operation that cannot subsequently fail. Counters require a network connection.
-Export/import
-offline activation files with `offlineRequest()` and `importOffline()`.
-Closing a floating client releases its seat; closing a device-bound client
-stops heartbeats and preserves the installation binding.
+Use `runMeteredFeature` for a configured usage counter, passing a distinct stable job ID,
+quantity and your business callback. The SDK reserves, executes, commits/cancels
+and records pending settlement. A known successful job retry settles without
+rerunning business. Persist the actual business result; after a crash during a
+callback, inspect its outcome and pass the truth to `resolveMeteredFeature`. The SDK does not
+guess or replay an uncertain business action. Metering requires a network.
 
-Accept an ordinary `lv_lic_...` key or a replacement computer's `lv_tmp_...`
-code through your activation UI. After activation, the SDK saves a machine-scoped
-credential beside `cache_path`. Later starts can use an empty `license_key`
-with the same product, trusted keys and cache path. Keep the credential in the
-user's application data directory; never ship it with the software.
+The lower-level reserve/commit/cancel and immediate-consume methods remain
+available. Offline request/response files are a separate disconnected-computer
+workflow. For private deployments, proxy settings or app versions, construct the
+language's SDK configuration object directly in code and use its lower-level
+constructor/start API. TLS and public-key pinning remain enabled.
 
-With a valid device-bound offline cache, startup restores access immediately
-and refreshes online in the background. Online-only and floating licenses wait
-for the server. `featureStatus('export')` explains a denial without contacting
-the server. Run `node app.mjs product.json` for an interactive application example.
-Its unfinished commit is held in memory; add durable job recovery in your app.
+This SDK needs native machine identity, so it runs in Node/Electron main processes, not ordinary web browsers. Async operations return Promises. When proxy_url is used, install undici. onStatusChanged is a callback property; marshal UI updates appropriately.
 
-Direct connections use built-in fetch. For `proxy_url`, install the optional
-`undici` dependency with a version compatible with your Node.js runtime.
+Close with `close` at application shutdown. Do not distribute test activation
+keys, machine credentials, cached grants or vendor management API keys.
+See [QUICKSTART.md](https://www.licentivo.com/en/docs.html#quickstart) and the
+[small desktop example](https://www.licentivo.com/en/docs.html#example).
+MIT licensed; bundled dependencies retain their licenses (NOTICE).

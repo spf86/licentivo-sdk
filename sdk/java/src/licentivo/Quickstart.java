@@ -2,9 +2,16 @@ package licentivo;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 /** A single protected operation. Keep Client alive while your application runs. */
 public final class Quickstart {
+// BEGIN LICENTIVO PRODUCT
+// Copy Product ID and all key ID/public key pairs from Console > Products > Signing public keys.
+private static final String PRODUCT_ID = "YOUR_PRODUCT_ID";
+private static final Map<String,String> TRUSTED_KEYS = Map.of("YOUR_KEY_ID", "YOUR_PUBLIC_KEY");
+// END LICENTIVO PRODUCT
+
     private static String setting(String name, String fallback) {
         String value = System.getenv(name);
         return value == null || value.isEmpty() ? fallback : value;
@@ -17,7 +24,7 @@ public final class Quickstart {
 
     public static void main(String[] args) {
         // In a GUI, read the activation input. Later starts pass an empty key.
-        try (var client = Client.openWithLicense(setting("LICENTIVO_CONFIG", "product.json"),
+        try (var client = Client.openProduct(PRODUCT_ID, TRUSTED_KEYS,
                 setting("LICENTIVO_LICENSE_KEY", ""), error -> System.err.println("Background verification: " + error.getMessage()))) {
             String feature = setting("LICENTIVO_FEATURE", "export");
             String path = setting("LICENTIVO_OUTPUT", "licensed-report.txt");

@@ -1,6 +1,6 @@
 using System.Text.Json;using Licentivo;
 if(args.Contains("--vectors")){var path=args.Length>1?args[1]:"tests/lease-vectors.json";using var doc=LicentivoClient.Parse(File.ReadAllBytes(path),131072);var root=doc.RootElement;var keys=root.GetProperty("trusted_keys").Deserialize<Dictionary<string,string>>()!;int count=0;foreach(var v in root.GetProperty("vectors").EnumerateArray()){bool ok;try{LicentivoClient.Verify(v.GetProperty("envelope"),keys,v.GetProperty("product_id").GetString()!,v.GetProperty("device_id").GetString()!,v.GetProperty("now").GetInt64());ok=true;}catch{ok=false;}if(ok!=v.GetProperty("valid").GetBoolean())throw new Exception(v.GetProperty("name").GetString());count++;}Console.WriteLine($"C#: {count} lease vectors passed");return;}
-var cfgPath = args.Length > 1 && args[0] == "--config" ? args[1] : ".local/sdk-demo.json";
+var cfgPath = args.Length > 1 && args[0] == "--config" ? args[1] : ".local/protocol-fixture.json";
 var cfg = JsonSerializer.Deserialize<Config>(File.ReadAllText(cfgPath), LicentivoClient.JsonOptions)!;
 bool cacheTest = args.Contains("--cache-test");
 await using (var client = new LicentivoClient(cfg)) {

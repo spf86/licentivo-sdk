@@ -137,7 +137,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 class Client:
     def __init__(self, config):
         self.feature_task_lock = threading.Lock()
-        self.config=dict(config); self.config.setdefault('license_key',''); self.config['base_url']=self.config['base_url'].rstrip('/');
+        self.config=dict(config); self.config.setdefault('license_key',''); self.config['base_url']=(self.config.get('base_url') or 'https://www.licentivo.com').rstrip('/');
         if not self.config.get('cache_path'): self.config['cache_path']=str(Path(os.environ.get('LOCALAPPDATA') or os.environ.get('XDG_CACHE_HOME') or str(Path.home()/'.cache'))/'Licentivo'/hashlib.sha256((self.config['base_url']+'\n'+self.config['product_id']).encode()).hexdigest()/'lease.json')
         self.profile,self.config['device_id']=machine_profile(config['product_id']); self.session_id=str(uuid.uuid4()); config=self.config; u=urllib.parse.urlsplit(config['base_url'])
         if u.username or not u.hostname or u.query or u.fragment or u.path not in ['','/']: raise ValueError('base_url must be an origin')
@@ -340,6 +340,16 @@ class Client:
         client=cls(loads(Path(path).read_bytes()))
         try: client.start(on_error);return client
         except Exception: client.close();raise
+    @classmethod
+    def open_product(cls,product_id,trusted_keys,license_key='',on_error=None):
+        client=cls({'product_id':product_id,'trusted_keys':dict(trusted_keys),'license_key':license_key.strip()})
+        try:
+            client.start(on_error)
+            return client
+        except Exception:
+            client.close()
+            raise
+
     @classmethod
     def open_with_license(cls,path,license_key,on_error=None):
         """Load shared product settings and use the customer's license key."""

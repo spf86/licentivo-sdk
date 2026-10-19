@@ -2,7 +2,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {Client, APIError} from './licentivo.mjs';
 
 const index = process.argv.indexOf('--config');
-const path = index >= 0 ? process.argv[index + 1] : '.local/sdk-demo.json';
+const path = index >= 0 ? process.argv[index + 1] : '.local/protocol-fixture.json';
 const cfg = JSON.parse(readFileSync(path, 'utf8'));
 const cacheTest = process.argv.includes('--cache-test');
 let client = new Client(cfg);

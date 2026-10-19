@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 public final class Demo {
     public static void main(String[] args) throws Exception {
-        String path = args.length > 1 && args[0].equals("--config") ? args[1] : ".local/sdk-demo.json";
+        String path = args.length > 1 && args[0].equals("--config") ? args[1] : ".local/protocol-fixture.json";
         var cfg = Json.object(Json.parse(Files.readString(Path.of(path))));
         boolean cacheTest = Arrays.asList(args).contains("--cache-test");
         try (Client client = new Client(cfg)) {

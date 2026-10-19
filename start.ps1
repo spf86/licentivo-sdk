@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
     [ValidateSet('go','java','c','cpp','csharp','python','javascript','rust','ruby')][string]$Language,
-    [switch]$TestLicense, [switch]$CheckOnly,
-    [string]$Config = 'product.json', [string]$Feature = 'export',
+    [switch]$CheckOnly, [string]$LicenseKey,
+    [string]$Feature = 'export',
     [string]$Output = 'licensed-report.txt', [switch]$Metered, [string]$OperationID,
     [string]$PythonExe = 'python', [string]$CurlRoot
 )
@@ -17,14 +17,11 @@ function Require-Tool([string]$Tool, [string[]]$Arguments) {
 }
 Push-Location $PSScriptRoot
 $saved = @{}
-foreach ($name in @('LICENTIVO_CONFIG','LICENTIVO_FEATURE','LICENTIVO_OUTPUT','LICENTIVO_LICENSE_KEY','LICENTIVO_METERED','LICENTIVO_OPERATION_ID','LICENTIVO_CURL_ROOT','PATH')) { $saved[$name] = [Environment]::GetEnvironmentVariable($name,'Process') }
+foreach ($name in @('LICENTIVO_FEATURE','LICENTIVO_OUTPUT','LICENTIVO_LICENSE_KEY','LICENTIVO_METERED','LICENTIVO_OPERATION_ID','LICENTIVO_CURL_ROOT','PATH')) { $saved[$name] = [Environment]::GetEnvironmentVariable($name,'Process') }
 try {
     if (-not $Language -and (Test-Path -LiteralPath 'SDK-LANGUAGE')) { $Language = (Get-Content -LiteralPath 'SDK-LANGUAGE' -Raw).Trim() }
     if (-not $Language) { throw 'Select -Language go, java, c, cpp, csharp, python, javascript, rust or ruby.' }
     if ($CurlRoot) { $CurlRoot = (Resolve-Path -LiteralPath $CurlRoot).Path; $env:LICENTIVO_CURL_ROOT=$CurlRoot; $env:PATH=(Join-Path $CurlRoot 'bin')+';'+$env:PATH }
-    if (-not (Test-Path -LiteralPath $Config)) { throw 'Missing product.json. Download a configured ZIP from Console > Quick integration.' }
-    $settings = Get-Content -LiteralPath $Config -Raw | ConvertFrom-Json
-    if (-not $settings.base_url -or -not $settings.product_id -or -not $settings.trusted_keys -or $settings.trusted_keys.PSObject.Properties.Count -eq 0) { throw 'Incomplete product settings: download product.json from Quick integration.' }
     Write-Output "Checking $Language development environment; no activation is sent by -CheckOnly."
     switch ($Language) {
         go { Require-Tool 'go' @('version') }
@@ -36,16 +33,9 @@ try {
         ruby { Require-Tool 'ruby' @('-e','require "fiddle"; abort "Ruby 3.1+ required" if (RUBY_VERSION.split(".").map(&:to_i)[0,2] <=> [3,1]) == -1; puts RUBY_VERSION'); Require-Tool 'gcc' @('--version'); if (-not $env:LICENTIVO_CURL_ROOT) { throw 'Ruby source builds on Windows require -CurlRoot <matching libcurl-folder>.' } }
         default { if (Get-Command cmake -ErrorAction SilentlyContinue) { Require-Tool 'cmake' @('--version') } elseif ($CurlRoot) { Require-Tool 'gcc' @('--version'); Require-Tool 'g++' @('--version') } else { throw 'C/C++ require CMake and libcurl development files. With MinGW, supply -CurlRoot <curl-folder>.' } }
     }
-    if ($CheckOnly) { Write-Output 'Environment and product file found. The SDK will validate configuration, TLS and signatures when it starts.'; return }
-    $env:LICENTIVO_CONFIG = (Resolve-Path -LiteralPath $Config).Path
+    if ($CheckOnly) { Write-Output 'Development tools found. No activation was sent. Fill product ID and public keys in the source before running.'; return }
     $env:LICENTIVO_FEATURE = $Feature; $env:LICENTIVO_OUTPUT = $Output
-    if ($TestLicense) {
-        if (-not (Test-Path -LiteralPath 'sdk-demo.json')) { throw 'Missing sdk-demo.json. Use a configured ZIP, or supply LICENTIVO_LICENSE_KEY from your activation input.' }
-        $testSettings = Get-Content -LiteralPath 'sdk-demo.json' -Raw | ConvertFrom-Json
-        if ($testSettings.product_id -ne $settings.product_id -or $testSettings.base_url -ne $settings.base_url) { throw 'Test license and product settings describe different products/origins.' }
-        $env:LICENTIVO_LICENSE_KEY = $testSettings.license_key
-        if (-not $env:LICENTIVO_LICENSE_KEY) { throw 'No test license in sdk-demo.json.' }
-    }
+    if ($LicenseKey) { $env:LICENTIVO_LICENSE_KEY=$LicenseKey }
     if ($Metered) { if (-not $OperationID) { throw 'Supply -OperationID with a stable job ID when using -Metered.' }; $env:LICENTIVO_METERED = '1'; $env:LICENTIVO_OPERATION_ID = $OperationID }
     else { $env:LICENTIVO_METERED = '0' }
     switch ($Language) {

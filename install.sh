@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 language="${1:-}"
-if [[ -z "$language" ]]; then echo 'Usage: bash install.sh LANGUAGE [--version 0.10.0] [--destination DIR] [--download-only]' >&2; exit 2; fi
+if [[ -z "$language" ]]; then echo 'Usage: bash install.sh LANGUAGE [--version 0.11.0] [--destination DIR] [--download-only]' >&2; exit 2; fi
 shift
-version=0.10.0
+version=0.11.0
 destination=.licentivo-sdk
 project=''
 python_exe=python3
@@ -25,8 +25,21 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; exit 2;;
   esac
 done
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Use a semantic release version such as 0.10.0.' >&2; exit 2; }
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Use a semantic release version such as 0.11.0.' >&2; exit 2; }
 case "$language" in go|python|javascript|java|csharp|c|cpp|rust|ruby) ;; *) echo "Unsupported language: $language" >&2; exit 2;; esac
+# Normal online installation uses the language registry, without a source tree.
+if [[ -z "$package_dir" && "$download_only" == 0 && "$language" != c && "$language" != cpp ]]; then
+  case "$language" in
+    go) go get "github.com/spf86/licentivo-sdk@v$version";;
+    python) "$python_exe" -m pip install "licentivo-sdk==$version";;
+    javascript) npm install "@licentivo/sdk@$version";;
+    csharp) if [[ -n "$project" ]]; then dotnet add "$project" package Licentivo.SDK --version "$version"; else dotnet add package Licentivo.SDK --version "$version"; fi;;
+    rust) if [[ -n "$project" ]]; then cargo add "licentivo@=$version" --manifest-path "$project"; else cargo add "licentivo@=$version"; fi;;
+    ruby) gem install licentivo-sdk --version "$version";;
+    java) echo "Add to Gradle dependencies (with mavenCentral()): implementation 'com.licentivo:licentivo-sdk:$version'";;
+  esac
+  exit 0
+fi
 if [[ "$language" == go || "$language" == c || "$language" == cpp || "$language" == rust ]]; then
   command -v unzip >/dev/null 2>&1 || { echo 'Install unzip before extracting the SDK source package.' >&2; exit 1; }
 fi
@@ -75,7 +88,8 @@ case "$language" in
       Linux:x86_64) candidate="licentivo-native-$version-linux-x64.zip";;
       MINGW*:x86_64|MSYS*:x86_64) candidate="licentivo-native-$version-windows-x64-$toolchain.zip";;
     esac
-    if [[ -n "$candidate" ]] && has_asset "$candidate"; then asset="$candidate"; else asset="licentivo-$language-$version.zip"; fi;;
+    if [[ -n "$candidate" ]] && has_asset "$candidate"; then asset="$candidate";
+    else echo 'No verified native package matches this platform/compiler. See the supported platforms in the SDK installation guide.' >&2; exit 1; fi;;
   *) asset="licentivo-$language-$version.zip";;
 esac
 fetch "$asset"
@@ -146,7 +160,7 @@ case "$language" in
     echo 'Import: using Licentivo;';;
   c|cpp)
     if [[ "$asset" == licentivo-native-* ]]; then
-      echo "CMake prefix: $extracted. Configure with -DCMAKE_PREFIX_PATH=$extracted, then find_package(Licentivo 0.10 REQUIRED) and link Licentivo::C or Licentivo::CPP."
+      echo "CMake prefix: $extracted. Configure with -DCMAKE_PREFIX_PATH=$extracted, then find_package(Licentivo $version REQUIRED) and link Licentivo::C or Licentivo::CPP."
     else echo "Source package: add_subdirectory($extracted/sdk licentivo-build), then link Licentivo::C or Licentivo::CPP."; fi
     echo 'Use matching compiler/ABI and libcurl dependencies. See docs/install.md.';;
 esac

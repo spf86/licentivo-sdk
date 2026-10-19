@@ -4,7 +4,7 @@ from pathlib import Path
 from licentivo import Client, APIError
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', default='.local/sdk-demo.json')
+parser.add_argument('--config', default='.local/protocol-fixture.json')
 parser.add_argument('--policy-test',action='store_true')
 parser.add_argument('--expect-denied',action='store_true')
 parser.add_argument('--cache-test', action='store_true')

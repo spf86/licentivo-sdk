@@ -1,51 +1,71 @@
 # Licentivo .NET SDK
 
-Add software licensing to a .NET 8+ console, desktop or service application. The SDK handles the authorization protocol while your application provides its activation screen and protected business functions.
+Add license activation and real feature permissions to your own application.
+The SDK handles requests, machine identity, pinned signatures, private credentials,
+cache and policy heartbeats. Your app supplies activation input and business code.
 
-## Features
+## Install into your project
 
-- Activate customer licenses, derive device identity, save private device credentials and restore authorization after restart.
-- Verify signed grants against pinned public keys and check license expiry and feature permissions.
-- Schedule policy heartbeats, use verified offline grants where the policy allows, and attempt floating-seat release on disposal.
-- Reserve usage, run your callback, commit success or cancel failure, and journal pending confirmations across restarts.
-- Read local status and feature decisions; refresh, deactivate or exchange offline activation files explicitly.
-- Report structured errors with request IDs for online diagnostics.
+Requirements: .NET 8+; the project declares BouncyCastle.Cryptography for signature verification.
 
-Metered operations require a network connection. Retain a stable job ID and a durable business result; after a crash during the callback, inspect that result before resolving settlement. Retrying a pending commit does not rerun the business function.
+Install the public SDK package in your existing application project:
 
-## Installation
-
-In the directory containing your application's `.csproj`:
-
-```bash
-dotnet add package Licentivo.SDK --version 0.10.0
+```sh
+dotnet add package Licentivo.SDK --version 0.11.0
 ```
 
-NuGet restores the declared `BouncyCastle.Cryptography` dependency. For an offline SDK download or a project with private feeds, use the [website installer and local-source instructions](https://www.licentivo.com/en/docs.html#sdk).
+No SDK source download, extraction or local path dependency is required.
 
-## First integration
+## Initialize from product settings in code
 
-Download `product.json` from **Quick integration** in your Licentivo workspace. It contains the product ID, HTTPS address and pinned public keys. Read the customer's license key from your activation screen; subsequent launches pass an empty string to restore the saved device credential.
+In Console > Products, copy your Product ID. Click that product's **Signing public
+keys** and copy every key ID/public key pair into trustedKeys / trusted_keys below.
+Replace the three YOUR_ placeholders. Quick integration can generate the public
+code constants for your own product. No configuration file is needed. The SDK
+defaults to `https://www.licentivo.com`; a software version is optional unless
+your policy uses version/maintenance controls. Each product has its own signing
+keys; customers of the same product share its public verification pins.
+
+Read customerKey / customer_key from your activation form. Accept a customer's
+ordinary license key or temporary transfer code; never use a vendor management key.
 
 ```csharp
 using Licentivo;
 
-await using var client = await LicentivoClient.OpenWithLicense(
-    "product.json", customerKey, error => Console.Error.WriteLine(error.Message));
-
-await client.RunFeature("export", () =>
-    File.WriteAllTextAsync("report.txt", "Your report\n"));
-// Keep client alive until your actual application exits.
+var trustedKeys = new Dictionary<string,string> { ["YOUR_KEY_ID"] = "YOUR_PUBLIC_KEY" };
+await using var client = await LicentivoClient.OpenProduct(
+    "YOUR_PRODUCT_ID", trustedKeys, customerKey);
+await client.RunFeature("export", () => File.WriteAllTextAsync("report.csv", "Your report\n"));
+// Real application: retain client until application shutdown.
 ```
 
-For configured metered features:
+Place the feature gate in the actual button/shortcut/command business handler.
+Denied operations do not invoke the callback. After first activation, pass an
+empty key to restore the saved credential for this product and user. Ordinary
+close retains device registration; `Deactivate` is for explicit device release.
+Floating close attempts to return its seat, with server expiry as fallback.
+Use `RefreshOnline` to force an online check. Offline behavior follows the signed
+policy and expiry; a confirmed server denial blocks protected features.
 
-```csharp
-await client.RunMeteredFeature("export", 1, persistentJobId, ExportReport);
-```
+## Metering and advanced operations
 
-The SDK handles reserve, commit/cancel and the pending journal. The application supplies `ExportReport`, the persistent job ID and its actual business result. Explicitly deactivate only for a customer-requested device release. Ordinary disposal retains a device-bound registration and attempts to return a floating seat.
+Use `RunMeteredFeature` for a configured usage counter, passing a distinct stable job ID,
+quantity and your business callback. The SDK reserves, executes, commits/cancels
+and records pending settlement. A known successful job retry settles without
+rerunning business. Persist the actual business result; after a crash during a
+callback, inspect its outcome and pass the truth to `ResolveMeteredFeature`. The SDK does not
+guess or replay an uncertain business action. Metering requires a network.
 
-[Complete examples for all nine languages](https://github.com/spf86/licentivo-sdk/blob/main/sdk/README.md) · [Quick integration and runtime documentation](https://www.licentivo.com/en/docs.html#quickstart)
+The lower-level reserve/commit/cancel and immediate-consume methods remain
+available. Offline request/response files are a separate disconnected-computer
+workflow. For private deployments, proxy settings or app versions, construct the
+language's SDK configuration object directly in code and use its lower-level
+constructor/start API. TLS and public-key pinning remain enabled.
 
-Do not distribute customer keys, device credentials, cached grants or vendor management API keys. Client code is MIT licensed; bundled dependencies retain their respective licenses.
+Await async operations. Online errors can be ApiException; local denial, signature errors and business failures can be other exceptions. The WinForms entry in winforms/Program.cs is under 50 lines.
+
+Close with `DisposeAsync` at application shutdown. Do not distribute test activation
+keys, machine credentials, cached grants or vendor management API keys.
+See [QUICKSTART.md](https://www.licentivo.com/en/docs.html#quickstart) and the
+[small desktop example](https://www.licentivo.com/en/docs.html#example).
+MIT licensed; bundled dependencies retain their licenses (NOTICE).

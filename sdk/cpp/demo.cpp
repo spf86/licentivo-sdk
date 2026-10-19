@@ -8,7 +8,7 @@ static std::string readText(const std::string&path){std::ifstream f(path);if(!f)
 static void usedIs(const std::string&s,double used,double over){cJSON*j=cJSON_Parse(s.c_str());const cJSON*u=cJSON_GetObjectItemCaseSensitive(j,"used"),*o=cJSON_GetObjectItemCaseSensitive(j,"overage");bool ok=cJSON_IsNumber(u)&&u->valuedouble==used&&cJSON_IsNumber(o)&&o->valuedouble==over;cJSON_Delete(j);if(!ok)throw std::runtime_error("invalid consumption receipt");}
 int main(int argc, char **argv) {
     try {
-        const std::string path = argc > 2 && std::string(argv[1]) == "--config" ? argv[2] : ".local/sdk-demo.json";
+        const std::string path = argc > 2 && std::string(argv[1]) == "--config" ? argv[2] : ".local/protocol-fixture.json";
         bool cacheTest = false;
         for (int i = 1; i < argc; i++) if (std::string(argv[i]) == "--cache-test") cacheTest = true;
         {

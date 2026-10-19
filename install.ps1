@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)][ValidateSet('go','python','javascript','java','csharp','c','cpp','rust','ruby')][string]$Language,
-    [string]$Version='0.10.0',
+    [string]$Version='0.11.0',
     [string]$Destination='.licentivo-sdk',
     [string]$Project='',
     [string]$PythonExe='python',
@@ -10,7 +10,28 @@ param(
     [switch]$DownloadOnly
 )
 $ErrorActionPreference='Stop'
-if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Use a release version such as 0.10.0.' }
+if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Use a release version such as 0.11.0.' }
+function Checked { param([string]$File,[string[]]$Arguments); & $File @Arguments; if ($LASTEXITCODE -ne 0) { throw "Command failed: $File" } }
+# Normal online installation uses public registries. PackageDirectory is reserved
+# for release verification and explicitly prepared offline binary packages.
+if (!$PackageDirectory -and !$DownloadOnly -and $Language -notin @('c','cpp')) {
+    switch ($Language) {
+        'go' { Checked 'go' @('get',"github.com/spf86/licentivo-sdk@v$Version") }
+        'python' { Checked $PythonExe @('-m','pip','install',"licentivo-sdk==$Version") }
+        'javascript' { Checked 'npm.cmd' @('install',"@licentivo/sdk@$Version") }
+        'csharp' {
+            $arguments=@('add'); if ($Project) { $arguments+= $Project }
+            Checked 'dotnet' ($arguments+@('package','Licentivo.SDK','--version',$Version))
+        }
+        'rust' {
+            $arguments=@('add',"licentivo@=$Version"); if ($Project) { $arguments+=@('--manifest-path',$Project) }
+            Checked 'cargo' $arguments
+        }
+        'ruby' { Checked 'ruby' @('-S','gem','install','licentivo-sdk','--version',$Version) }
+        'java' { Write-Output "Add to Gradle dependencies (with mavenCentral()): implementation 'com.licentivo:licentivo-sdk:$Version'" }
+    }
+    return
+}
 $sdkReleaseBase=[Uri]$ReleaseBaseURL
 if (!$sdkReleaseBase.IsAbsoluteUri -or $sdkReleaseBase.Scheme -cne 'https' -or $sdkReleaseBase.UserInfo -or $sdkReleaseBase.Query -or $sdkReleaseBase.Fragment) { throw 'ReleaseBaseURL must be an absolute HTTPS directory URL.' }
 $sdkReleaseURL=$ReleaseBaseURL.TrimEnd('/')+"/v$Version"
@@ -18,7 +39,6 @@ $sdkInstallRoot=Join-Path (Join-Path $Destination $Language) "v$Version"
 New-Item -ItemType Directory -Path $sdkInstallRoot -Force | Out-Null
 $sdkInstallRoot=(Resolve-Path -LiteralPath $sdkInstallRoot).Path
 if ($PackageDirectory) { $PackageDirectory=(Resolve-Path -LiteralPath $PackageDirectory).Path }
-function Checked { param([string]$File,[string[]]$Arguments); & $File @Arguments; if ($LASTEXITCODE -ne 0) { throw "Command failed: $File" } }
 function Fetch { param([string]$Name)
     $target=Join-Path $sdkInstallRoot $Name
     if ($PackageDirectory) {
@@ -68,7 +88,7 @@ $asset=switch ($Language) {
         if ($env:OS -eq 'Windows_NT' -and [Environment]::Is64BitOperatingSystem -and $env:PROCESSOR_ARCHITECTURE -in @('AMD64','x86')) {
             $candidate="licentivo-native-$Version-windows-x64-$Toolchain.zip"
         } else { $candidate='' }
-        if ($candidate -and (HasAsset $candidate)) { $candidate } else { "licentivo-$Language-$Version.zip" }
+        if ($candidate -and (HasAsset $candidate)) { $candidate } else { throw 'No verified native package matches this platform/compiler. See the supported platforms in the SDK installation guide.' }
     }
     default { "licentivo-$Language-$Version.zip" }
 }
@@ -142,7 +162,7 @@ switch ($Language) {
     }
     { $_ -in @('c','cpp') } {
         if ($asset.StartsWith('licentivo-native-')) {
-            Write-Output "CMake prefix: $source. Configure with -DCMAKE_PREFIX_PATH=$source, then find_package(Licentivo 0.10 REQUIRED) and link Licentivo::C or Licentivo::CPP."
+            Write-Output "CMake prefix: $source. Configure with -DCMAKE_PREFIX_PATH=$source, then find_package(Licentivo $Version REQUIRED) and link Licentivo::C or Licentivo::CPP."
         } else { Write-Output "Source package: add_subdirectory($source/sdk licentivo-build), then link Licentivo::C or Licentivo::CPP." }
         Write-Output 'Use matching compiler/ABI and libcurl dependencies. See docs/install.md.'
     }

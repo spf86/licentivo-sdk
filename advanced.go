@@ -69,6 +69,21 @@ func (c *Client) Start(ctx context.Context, onError func(error)) (lease.Claims, 
 	}
 	return claims, c.StartHeartbeat(ctx, onError)
 }
+
+// OpenProduct starts a client using the product ID and public keys copied from
+// Console > Products > Signing public keys. Keep it alive until app shutdown.
+func OpenProduct(ctx context.Context, productID string, trustedKeys map[string]string, licenseKey string, onError func(error)) (*Client, error) {
+	c, err := New(Config{ProductID: productID, TrustedKeys: trustedKeys, LicenseKey: strings.TrimSpace(licenseKey)})
+	if err != nil {
+		return nil, err
+	}
+	if _, err = c.Start(ctx, onError); err != nil {
+		c.Close()
+		return nil, err
+	}
+	return c, nil
+}
+
 func Open(ctx context.Context, configPath string, onError func(error)) (*Client, error) {
 	return openWithConfig(ctx, configPath, nil, onError)
 }

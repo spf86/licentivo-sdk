@@ -99,6 +99,9 @@ func DeviceID(product, stableInstallationID string) string {
 	return hex.EncodeToString(sum[:])
 }
 func New(cfg Config) (*Client, error) {
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = "https://www.licentivo.com"
+	}
 	profile, device, err := MachineProfile(cfg.ProductID)
 	if err != nil {
 		return nil, err

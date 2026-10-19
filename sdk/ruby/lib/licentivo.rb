@@ -4,7 +4,7 @@ require 'json'
 require 'monitor'
 
 module Licentivo
-  VERSION = '0.10.0'
+  VERSION = '0.11.0'
 
   class Error < StandardError
     attr_reader :code, :http_status, :request_id, :retryable, :retry_after_seconds
@@ -58,6 +58,8 @@ module Licentivo
         p, i, q = Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT, Fiddle::TYPE_LONG_LONG
         signatures = {
           init: ['ln_init_file_with_license', [p,p], p],
+          init_json: ['ln_init', [p], p],
+          init_product: ['ln_init_product', [p,p,p], p],
           start: ['ln_start', [p], i], destroy: ['ln_destroy', [p], Fiddle::TYPE_VOID],
           last_error: ['ln_last_error', [p], p], error_info: ['ln_get_error_info', [p,p], i],
           status: ['ln_status', [p], p], feature_status: ['ln_feature_status', [p,p], p],
@@ -94,6 +96,26 @@ module Licentivo
   end
 
   class Client
+    def self.open_config(config, &block)
+      raise ArgumentError, 'Provide an in-code configuration Hash' unless config.is_a?(Hash)
+      open_with_license(config, &block)
+    end
+    def self.open_product(product_id, trusted_keys, customer_key = '')
+      client = new(product_id, customer_key, trusted_keys: trusted_keys)
+      begin
+        client.start
+      rescue Exception
+        client.close
+        raise
+      end
+      return client unless block_given?
+      begin
+        yield client
+      ensure
+        client.close
+      end
+    end
+
     def self.open_with_license(path, customer_key = '')
       client = new(path, customer_key)
       begin
@@ -110,12 +132,18 @@ module Licentivo
       end
     end
 
-    def initialize(path, customer_key = '')
+    def initialize(path, customer_key = '', trusted_keys: nil)
       @lock, @in_callback = Monitor.new, false
-      @native = Native.call(:init, Native.input(path), Native.input(customer_key))
+      @native = if path.is_a?(Hash)
+                  Native.call(:init_json, Native.input(JSON.generate(path)))
+                elsif trusted_keys.nil?
+                  Native.call(:init, Native.input(path), Native.input(customer_key))
+                else
+                  Native.call(:init_product, Native.input(path), Native.input(JSON.generate(trusted_keys)), Native.input(customer_key.strip))
+                end
       if @native.null?
         @native = nil
-        raise Error.new('Check product.json, pinned keys and local storage', code: 'CONFIGURATION_ERROR')
+        raise Error.new('Check product ID, public keys and local storage', code: 'CONFIGURATION_ERROR')
       end
     end
 

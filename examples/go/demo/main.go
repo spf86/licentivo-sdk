@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	path := flag.String("config", ".local/sdk-demo.json", "SDK demo config (contains a license secret)")
+	path := flag.String("config", ".local/protocol-fixture.json", "SDK demo config (contains a license secret)")
 	policyTest := flag.Bool("policy-test", false, "inspect a preloaded signed policy cache")
 	expectDenied := flag.Bool("expect-denied", false, "cache must not grant access")
 	cacheTest := flag.Bool("cache-test", false, "run the offline-cache integration scenario")

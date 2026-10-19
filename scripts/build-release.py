@@ -50,10 +50,10 @@ def public_files(directory):
 
 def source_bundle(language, output, version):
     entries = {name: ROOT / name for name in ("LICENSE", "NOTICE", "VERSION")}
-    for name in ("README.md", "LICENSE", "NOTICE", "VERSION", "example-config.json"):
+    for name in ("README.md", "LICENSE", "NOTICE", "VERSION"):
         entries["sdk/" + name] = ROOT / "sdk" / name
     entries["tests/lease-vectors.json"] = ROOT / "tests/lease-vectors.json"
-    for name in ("README.md", "QUICKSTART.md", "start.ps1", "start.sh", "install.ps1", "install.sh"):
+    for name in ("README.md", "QUICKSTART.md", "EXAMPLE.md", "start.ps1", "start.sh", "install.ps1", "install.sh"):
         entries[name] = ROOT / name
     entries.update({"docs/" + name: path for name, path in public_files(ROOT / "docs")})
     entries["SDK-LANGUAGE"] = (language + "\n").encode()

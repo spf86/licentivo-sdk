@@ -1,73 +1,71 @@
 # Licentivo Python SDK
 
-Add software license activation and protected features to a Python application without implementing the licensing HTTP protocol yourself.
+Add license activation and real feature permissions to your own application.
+The SDK handles requests, machine identity, pinned signatures, private credentials,
+cache and policy heartbeats. Your app supplies activation input and business code.
 
-## Features
+## Install into your project
 
-- Activates a customer license, derives device identity, stores a private device credential and restores it after restart.
-- Verifies signed grants with pinned public keys and checks license/feature status before running your business callback.
-- Schedules policy heartbeats, supports permitted offline grants and returns floating seats on close.
-- Handles metered-feature reservation, commit/cancel and recovery of pending confirmations using a stable job ID.
-- Provides explicit refresh/deactivation, offline activation file exchange and structured error details.
+Requirements: Python 3.10+; Tk for the optional desktop application.
 
-Your application supplies the activation interface, business function and durable business results. The SDK handles the authorization workflow; management API keys stay on your server.
+Install the public SDK package in your existing application project:
 
-## Installation
-
-Use Python 3.10+ and a virtual environment. Install the pinned release from PyPI:
-
-```bash
-python -m pip install "licentivo-sdk==0.10.0"
+```sh
+python -m pip install "licentivo-sdk==0.11.0"
 ```
 
-For an offline release, install local sources with `python -m pip install ./sdk/python`,
-or a downloaded wheel with `python -m pip install ./licentivo_sdk-0.10.0-py3-none-any.whl`.
-The [website installation guide](https://www.licentivo.com/en/docs.html#sdk) shows current release availability and the common installer.
-For the full starter, see QUICKSTART.md at the configured ZIP root and run `start.ps1` / `start.sh`.
-Keep `product.json` in application resources. Read the customer's key from your
-activation UI; after activation pass an empty string to restore the credential.
+No SDK source download, extraction or local path dependency is required.
+
+## Initialize from product settings in code
+
+In Console > Products, copy your Product ID. Click that product's **Signing public
+keys** and copy every key ID/public key pair into trustedKeys / trusted_keys below.
+Replace the three YOUR_ placeholders. Quick integration can generate the public
+code constants for your own product. No configuration file is needed. The SDK
+defaults to `https://www.licentivo.com`; a software version is optional unless
+your policy uses version/maintenance controls. Each product has its own signing
+keys; customers of the same product share its public verification pins.
+
+Read customerKey / customer_key from your activation form. Accept a customer's
+ordinary license key or temporary transfer code; never use a vendor management key.
 
 ```python
 from licentivo import Client
 from pathlib import Path
 
-with Client.open_with_license('product.json', customer_key, on_error=print) as client:
-    client.run_feature('export', lambda: Path('report.txt').write_text('Report\n'))
-    # In your app, keep this context open until the application exits.
+trusted_keys = {'YOUR_KEY_ID': 'YOUR_PUBLIC_KEY'}
+with Client.open_product('YOUR_PRODUCT_ID', trusted_keys, customer_key, on_error=print) as client:
+    client.run_feature('export', lambda: Path('report.csv').write_text('Your report\n'))
+    # Real application: keep this context open until shutdown.
 ```
 
-For a configured metered feature, pass your business callback to the SDK:
+Place the feature gate in the actual button/shortcut/command business handler.
+Denied operations do not invoke the callback. After first activation, pass an
+empty key to restore the saved credential for this product and user. Ordinary
+close retains device registration; `deactivate` is for explicit device release.
+Floating close attempts to return its seat, with server expiry as fallback.
+Use `refresh_online` to force an online check. Offline behavior follows the signed
+policy and expiry; a confirmed server denial blocks protected features.
 
-```python
-client.run_metered_feature('export', 1, persistent_job_id, export_report)
-```
+## Metering and advanced operations
 
-The SDK reserves, runs, confirms/cancels and stores a private journal. Retain your
-job ID and durable business result. Repeating this call after a pending commit,
-including after restart, retries only confirmation and never repeats business.
-If a process crashes during the callback, inspect its result and call
-`resolve_metered_feature(job_id, succeeded)`; the SDK does not guess or rerun it.
-One workflow runs per client; different processes need different job IDs.
-The lower-level reserve/commit/cancel methods remain available for custom flows.
-The counter requires an online connection. `consume()` immediately charges
-usage and is for operations that cannot subsequently fail.
+Use `run_metered_feature` for a configured usage counter, passing a distinct stable job ID,
+quantity and your business callback. The SDK reserves, executes, commits/cancels
+and records pending settlement. A known successful job retry settles without
+rerunning business. Persist the actual business result; after a crash during a
+callback, inspect its outcome and pass the truth to `resolve_metered_feature`. The SDK does not
+guess or replay an uncertain business action. Metering requires a network.
 
-`offline_request()` returns a dictionary to save as JSON;
-`import_offline(request_dict, response_dict)` verifies an offline activation.
-Closing a floating client releases its seat; device bindings are kept.
+The lower-level reserve/commit/cancel and immediate-consume methods remain
+available. Offline request/response files are a separate disconnected-computer
+workflow. For private deployments, proxy settings or app versions, construct the
+language's SDK configuration object directly in code and use its lower-level
+constructor/start API. TLS and public-key pinning remain enabled.
 
-Accept an ordinary `lv_lic_...` key or a replacement computer's `lv_tmp_...`
-code through your activation UI. After activation, the SDK saves a machine-scoped
-credential beside `cache_path`. Later starts can use an empty `license_key`
-with the same product, trusted keys and cache path. Keep the credential in the
-user's application data directory; never ship it with the software.
+Network methods are synchronous; use a worker for GUI activation and refresh. APIError contains online diagnostics; other exceptions can represent local denial, validation or business failure. Run python desktop.py for the Tk example. An in-flight HTTP request is bounded by its timeout.
 
-With a valid device-bound offline cache, startup restores access immediately
-and refreshes online in the background. Online-only and floating licenses wait
-for the server. `feature_status('export')` explains a denial without a network
-request. Call `close()` on exit. Python's synchronous HTTP transport may finish
-an in-flight request after close; its timeout bounds that work.
-
-Run `python desktop.py product.json` for an activation and report-export window.
-It retains an export journal for commit recovery. An interrupted output still
-requires your application to check whether the business operation completed.
+Close with `close` at application shutdown. Do not distribute test activation
+keys, machine credentials, cached grants or vendor management API keys.
+See [QUICKSTART.md](https://www.licentivo.com/en/docs.html#quickstart) and the
+[small desktop example](https://www.licentivo.com/en/docs.html#example).
+MIT licensed; bundled dependencies retain their licenses (NOTICE).

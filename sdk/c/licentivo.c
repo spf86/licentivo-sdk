@@ -231,7 +231,7 @@ char*ln_feature_status(ln_client*c,const char*feature){
 }
 void ln_on_status_changed(ln_client*c,ln_status_callback callback,void*data){if(!c)return;view_lock(c);c->callback=callback;c->callback_data=data;view_unlock(c);}
 static void notify(ln_client*c){view_lock(c);ln_status_callback callback=c->callback;void*data=c->callback_data;view_unlock(c);if(callback){char*status=ln_status(c);if(status){callback(status,data);free(status);}}}
-ln_client*ln_init(const char*config){if(!ensure_curl())return NULL;cJSON*cfg=ln_json(config);if(!cfg)return NULL;if(!text(cfg,"license_key"))cJSON_AddStringToObject(cfg,"license_key","");const char*base=text(cfg,"base_url");if(base&&strlen(base)>0&&base[strlen(base)-1]=='/'){char*copy=malloc(strlen(base));if(!copy){cJSON_Delete(cfg);return NULL;}memcpy(copy,base,strlen(base)-1);copy[strlen(base)-1]=0;cJSON_ReplaceItemInObjectCaseSensitive(cfg,"base_url",cJSON_CreateString(copy));free(copy);}const char*cache=text(cfg,"cache_path");if(!cache||!cache[0]){char scope[65],context[512],path[2048];snprintf(context,sizeof(context),"%s\n%s",text(cfg,"base_url")?text(cfg,"base_url"):"",text(cfg,"product_id")?text(cfg,"product_id"):"");if(!hash(context,scope)){cJSON_Delete(cfg);return NULL;}
+ln_client*ln_init(const char*config){if(!ensure_curl())return NULL;cJSON*cfg=ln_json(config);if(!cfg)return NULL;if(!text(cfg,"license_key"))cJSON_AddStringToObject(cfg,"license_key","");const char*base=text(cfg,"base_url");if(!base||!base[0]){cJSON_DeleteItemFromObjectCaseSensitive(cfg,"base_url");cJSON_AddStringToObject(cfg,"base_url","https://www.licentivo.com");base=text(cfg,"base_url");}if(base&&strlen(base)>0&&base[strlen(base)-1]=='/'){char*copy=malloc(strlen(base));if(!copy){cJSON_Delete(cfg);return NULL;}memcpy(copy,base,strlen(base)-1);copy[strlen(base)-1]=0;cJSON_ReplaceItemInObjectCaseSensitive(cfg,"base_url",cJSON_CreateString(copy));free(copy);}const char*cache=text(cfg,"cache_path");if(!cache||!cache[0]){char scope[65],context[512],path[2048];snprintf(context,sizeof(context),"%s\n%s",text(cfg,"base_url")?text(cfg,"base_url"):"",text(cfg,"product_id")?text(cfg,"product_id"):"");if(!hash(context,scope)){cJSON_Delete(cfg);return NULL;}
 #ifdef _WIN32
  const char*root=getenv("LOCALAPPDATA");
 #else
@@ -246,6 +246,18 @@ ln_client*ln_init(const char*config){if(!ensure_curl())return NULL;cJSON*cfg=ln_
 #endif
  load_credential(c);if(!secret[0]&&!c->auth){ln_destroy(c);return NULL;}const char*path=text(cfg,"cache_path");char*b=path&&path[0]?readfile(path,LIMIT):NULL;if(b){cJSON*s=ln_json(b);int64_t version,observed;char h[65];int hash_ok=secret[0]?hash(secret,h):device(text(c->auth,"source_hash"));if(!secret[0]&&hash_ok)strcpy(h,text(c->auth,"source_hash"));if(hash_ok&&s&&num(s,"version",&version)&&version==1&&text(s,"license_hash")&&!strcmp(text(s,"license_hash"),h)&&num(s,"observed_at",&observed)&&time(NULL)+300>=observed&&ln_verify(get(s,"lease"),keys,text(cfg,"product_id"),text(cfg,"device_id"),time(NULL))){int interval=3600,mode=envelope_policy(get(s,"lease"),&interval);if(mode!=1&&client_context(c,get(s,"lease"))){c->cached=cJSON_Duplicate(get(s,"lease"),1);c->wall=observed;c->interval=interval;c->offline=mode;}}cJSON_Delete(s);free(b);}publish(c,0);return c;}
 ln_client*ln_init_file(const char*p){char*b=readfile(p,LIMIT);if(!b)return NULL;ln_client*c=ln_init(b);free(b);return c;}
+ln_client*ln_init_product(const char*product_id,const char*trusted_keys_json,const char*license_key){
+    if(!product_id||!trusted_keys_json||!license_key)return NULL;
+    const char*start=license_key;while(*start==' '||*start=='\t'||*start=='\r'||*start=='\n')start++;
+    const char*end=start+strlen(start);while(end>start&&(end[-1]==' '||end[-1]=='\t'||end[-1]=='\r'||end[-1]=='\n'))end--;
+    size_t length=(size_t)(end-start);if(length>50)return NULL;
+    char trimmed[51];memcpy(trimmed,start,length);trimmed[length]=0;
+    cJSON*keys=ln_json(trusted_keys_json);if(!cJSON_IsObject(keys)){cJSON_Delete(keys);return NULL;}
+    cJSON*cfg=cJSON_CreateObject();if(!cfg){cJSON_Delete(keys);return NULL;}
+    cJSON_AddStringToObject(cfg,"product_id",product_id);cJSON_AddItemToObject(cfg,"trusted_keys",keys);cJSON_AddStringToObject(cfg,"license_key",trimmed);
+    char*json=cJSON_PrintUnformatted(cfg);cJSON_Delete(cfg);if(!json)return NULL;
+    ln_client*client=ln_init(json);cJSON_free(json);return client;
+}
 ln_client*ln_init_file_with_license(const char*path,const char*license_key){
  if(!license_key)return NULL;
  const char*start=license_key;while(*start==' '||*start=='\t'||*start=='\r'||*start=='\n')start++;

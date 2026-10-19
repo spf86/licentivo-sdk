@@ -1,6 +1,12 @@
 # frozen_string_literal: true
 require_relative '../lib/licentivo'
 
+# BEGIN LICENTIVO PRODUCT
+# Copy Product ID and all key ID/public key pairs from Console > Products > Signing public keys.
+PRODUCT_ID = 'YOUR_PRODUCT_ID'
+TRUSTED_KEYS = {'YOUR_KEY_ID' => 'YOUR_PUBLIC_KEY'}.freeze
+# END LICENTIVO PRODUCT
+
 def ask(label)
   print label
   $stdout.flush
@@ -12,19 +18,19 @@ def export_report
   puts 'Saved licensed-report.txt'
 end
 
-config = ARGV[0] || 'product.json'
+
 key = ENV.fetch('LICENTIVO_LICENSE_KEY', '')
 client = nil
 begin
   begin
-    client = Licentivo::Client.open_with_license(config, key)
+    client = Licentivo::Client.open_product(PRODUCT_ID, TRUSTED_KEYS, key)
   rescue Licentivo::Error => error
     warn error.message
     key = ask('Customer activation key (not a management API key): ')
-    client = Licentivo::Client.open_with_license(config, key)
+    client = Licentivo::Client.open_product(PRODUCT_ID, TRUSTED_KEYS, key)
   end
   loop do
-    puts "\n1 Status | 2 Export | 3 Metered export | 4 Refresh | 5 Transfer device | 0 Quit"
+    puts "\n1 Status | 2 Export | 3 Metered export | 4 Refresh | 5 Transfer device | 6 Pro report | 0 Quit"
     choice = ask('> ')
     break if choice == '0' || choice.empty?
     begin
@@ -35,6 +41,7 @@ begin
         id = ask('Stable job ID (reuse only to recover this same job): ')
         result = client.run_metered_feature('export', 1, id) { export_report }
         puts 'Existing job confirmed; export was not repeated' if result.replay?
+      when '6' then client.run_feature('pro') { File.write('pro-report.txt', "Sales total: 40.00\n") }
       when '4' then client.refresh_online
       when '5'
         if ask('Type TRANSFER to explicitly unbind this device: ') == 'TRANSFER'

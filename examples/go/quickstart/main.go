@@ -8,6 +8,14 @@ import (
 	"os"
 )
 
+// BEGIN LICENTIVO PRODUCT
+// Copy Product ID and all key ID/public key pairs from Console > Products > Signing public keys.
+const productID = "YOUR_PRODUCT_ID"
+
+var trustedKeys = map[string]string{"YOUR_KEY_ID": "YOUR_PUBLIC_KEY"}
+
+// END LICENTIVO PRODUCT
+
 func setting(name, fallback string) string {
 	if value := os.Getenv(name); value != "" {
 		return value
@@ -25,7 +33,7 @@ func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	// In a GUI, obtain key from the activation input. Later starts use an empty key.
-	client, err := licentivo.OpenWithLicense(ctx, setting("LICENTIVO_CONFIG", "product.json"), os.Getenv("LICENTIVO_LICENSE_KEY"), func(err error) {
+	client, err := licentivo.OpenProduct(ctx, productID, trustedKeys, os.Getenv("LICENTIVO_LICENSE_KEY"), func(err error) {
 		fmt.Fprintln(os.Stderr, "Background verification:", err)
 	})
 	if err != nil {

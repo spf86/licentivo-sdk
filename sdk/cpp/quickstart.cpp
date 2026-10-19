@@ -3,6 +3,12 @@
 #include <fstream>
 #include <iostream>
 
+// BEGIN LICENTIVO PRODUCT
+// Copy Product ID and all key ID/public key pairs from Console > Products > Signing public keys.
+static const std::string PRODUCT_ID = "YOUR_PRODUCT_ID";
+static const std::string TRUSTED_KEYS_JSON = R"({"YOUR_KEY_ID":"YOUR_PUBLIC_KEY"})";
+// END LICENTIVO PRODUCT
+
 static std::string setting(const char *name, const char *fallback) {
     const char *value = std::getenv(name);
     return value && value[0] ? value : fallback;
@@ -19,7 +25,7 @@ static void exportReport(const std::string &path) {
 int main() {
     try {
         // A GUI supplies customer input; an empty key restores a prior activation.
-        licentivo::Client client(setting("LICENTIVO_CONFIG", "product.json"), setting("LICENTIVO_LICENSE_KEY", ""));
+        auto client = licentivo::Client::ForProduct(PRODUCT_ID, TRUSTED_KEYS_JSON, setting("LICENTIVO_LICENSE_KEY", ""));
         client.Start();
         auto feature = setting("LICENTIVO_FEATURE", "export");
         auto path = setting("LICENTIVO_OUTPUT", "licensed-report.txt");

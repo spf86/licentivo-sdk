@@ -1,5 +1,11 @@
 using Licentivo;
 
+// BEGIN LICENTIVO PRODUCT
+// Copy Product ID and all key ID/public key pairs from Console > Products > Signing public keys.
+const string ProductId = "YOUR_PRODUCT_ID";
+var TrustedKeys = new Dictionary<string,string> { ["YOUR_KEY_ID"] = "YOUR_PUBLIC_KEY" };
+// END LICENTIVO PRODUCT
+
 static string Setting(string name, string fallback) => Environment.GetEnvironmentVariable(name) ?? fallback;
 
 // Call at the business entry point, including shortcuts and alternate menu actions.
@@ -12,8 +18,8 @@ static async Task ExportReport(string path)
 try
 {
     // In a GUI, read the activation input. Later starts pass an empty key.
-    await using var client = await LicentivoClient.OpenWithLicense(
-        Setting("LICENTIVO_CONFIG", "product.json"), Setting("LICENTIVO_LICENSE_KEY", ""),
+    await using var client = await LicentivoClient.OpenProduct(
+        ProductId, TrustedKeys, Setting("LICENTIVO_LICENSE_KEY", ""),
         error => Console.Error.WriteLine($"Background verification: {error.Message}"));
     var feature = Setting("LICENTIVO_FEATURE", "export");
     var path = Setting("LICENTIVO_OUTPUT", "licensed-report.txt");

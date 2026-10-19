@@ -32,6 +32,9 @@ char *ln_commit(ln_client*,const char *reservation_id,const char *operation_id);
 char *ln_cancel(ln_client*,const char *reservation_id,const char *operation_id);
 /* All runtime operations are serialized. Configuration pins keys and contains a license secret. */
 ln_client *ln_init(const char *config_json);
+/* Product ID and key-id/public-key map from Console > Products > Signing public keys.
+   The service URL defaults to https://www.licentivo.com. Call ln_start afterwards. */
+ln_client *ln_init_product(const char *product_id,const char *trusted_keys_json,const char *license_key);
 ln_client *ln_init_file(const char *path);
 /* Shared product config; the application supplies the customer's license key. */
 ln_client *ln_init_file_with_license(const char *path,const char *license_key);

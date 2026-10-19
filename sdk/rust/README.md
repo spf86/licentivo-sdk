@@ -1,55 +1,77 @@
 # Licentivo Rust SDK
 
-Start with the repository's `QUICKSTART.md`. The complete application in
-`examples/quickstart.rs` activates/restores a device and actually exports a file.
-It also supports `LICENTIVO_METERED=1` and a stable `LICENTIVO_OPERATION_ID`.
+Add license activation and real feature permissions to your own application.
+The SDK handles requests, machine identity, pinned signatures, private credentials,
+cache and policy heartbeats. Your app supplies activation input and business code.
 
-Prerequisites: Rust 1.77+, a C11 compiler and libcurl development files. Linux also
-needs OpenSSL development files. Windows currently uses the GNU/MinGW Rust target
-and a matching libcurl package; set `LICENTIVO_CURL_ROOT` to its directory and add
-its `bin` directory to the application process's PATH. MSVC and physical macOS
-acceptance are pending. The build compiles the bundled licensing core; applications
-do not need to implement HTTP, signatures, device identity, encryption or timers.
+## Install into your project
 
-Install the pinned release from crates.io in your existing Cargo project:
+Requirements: Rust 1.77+, C11 compiler and libcurl development files (OpenSSL development files on Linux).
 
-```bash
-cargo add licentivo@=0.10.0
+Install the public SDK package in your existing application project:
+
+```sh
+cargo add licentivo@=0.11.0
 ```
 
-The [common website installer](https://www.licentivo.com/en/docs.html#sdk) is also available with `rust`; it verifies the downloaded package and adds a Cargo path dependency. Offline source installation is supported:
+No SDK source download, extraction or local path dependency is required.
 
-```toml
-[dependencies]
-licentivo = { path = "SDK_ROOT/sdk/rust" }
-```
+## Initialize from product settings in code
+
+In Console > Products, copy your Product ID. Click that product's **Signing public
+keys** and copy every key ID/public key pair into trustedKeys / trusted_keys below.
+Replace the three YOUR_ placeholders. Quick integration can generate the public
+code constants for your own product. No configuration file is needed. The SDK
+defaults to `https://www.licentivo.com`; a software version is optional unless
+your policy uses version/maintenance controls. Each product has its own signing
+keys; customers of the same product share its public verification pins.
+
+Read customerKey / customer_key from your activation form. Accept a customer's
+ordinary license key or temporary transfer code; never use a vendor management key.
 
 ```rust
 use licentivo::{Client, Error};
 
-fn run(customer_key: &str) -> Result<(), Error> {
-    let mut client = Client::open_with_license("product.json", customer_key)?;
+fn protected_export(customer_key: &str) -> Result<(), Error> {
+    let trusted_keys = r#"{"YOUR_KEY_ID":"YOUR_PUBLIC_KEY"}"#;
+    let mut client = Client::open_product("YOUR_PRODUCT_ID", trusted_keys, customer_key)?;
     client.run_feature("export", || {
-        std::fs::write("report.txt", "Your business result\n")?;
+        std::fs::write("report.csv", "Your report\n")?;
         Ok(())
     })?;
-    Ok(()) // In a real app, retain client until shutdown.
+    Ok(()) // Real application: retain client until shutdown; Drop handles cleanup.
 }
 ```
 
-`run_metered_feature("export", 1, job_id, callback)` journals reserve, business
-execution and confirmation. A successful retry returns `Execution::AlreadyCompleted`
-and skips the callback; load its result from your application's job record. If the
-application crashes during the callback, determine the real business outcome and
-call `resolve_metered_feature(job_id, succeeded)`. Use one distinct stable ID per
-job and serialize calls on the client. Client is Send, so ownership can move to a
-worker thread; it is not Sync. Policy heartbeats run in the core.
+Place the feature gate in the actual button/shortcut/command business handler.
+Denied operations do not invoke the callback. After first activation, pass an
+empty key to restore the saved credential for this product and user. Ordinary
+close retains device registration; `deactivate` is for explicit device release.
+Floating close attempts to return its seat, with server expiry as fallback.
+Use `refresh_online` to force an online check. Offline behavior follows the signed
+policy and expiry; a confirmed server denial blocks protected features.
 
-`status()` and `feature_status()` return local JSON decisions. `Error` exposes
-`code`, `http_status`, `request_id`, `retryable` and `retry_after_seconds`. There
-are explicit online refresh, deactivate, offline exchange and low-level metering
-methods for advanced integrations. `close()` consumes the client; Drop also stops
-heartbeats and releases floating seats. Pinned signatures and TLS remain enabled.
+## Metering and advanced operations
 
-Do not ship test keys, `sdk-demo.json`, device credentials, caches or management API
-keys. The SDK and vendored dependencies' licenses are included in the package.
+Use `run_metered_feature` for a configured usage counter, passing a distinct stable job ID,
+quantity and your business callback. The SDK reserves, executes, commits/cancels
+and records pending settlement. A known successful job retry settles without
+rerunning business. Persist the actual business result; after a crash during a
+callback, inspect its outcome and pass the truth to `resolve_metered_feature`. The SDK does not
+guess or replay an uncertain business action. Metering requires a network.
+
+The lower-level reserve/commit/cancel and immediate-consume methods remain
+available. Offline request/response files are a separate disconnected-computer
+workflow. For private deployments, proxy settings or app versions, construct the
+language's SDK configuration object directly in code and use its lower-level
+constructor/start API. TLS and public-key pinning remain enabled.
+
+The binding uses the shared C core. Client is Send, not Sync; move ownership to a worker for synchronous network work. There are no separate activate/start/check_feature/timer/listener APIs. status and feature_status return local JSON. Error exposes code, http_status, request_id, retryable and retry_after_seconds. A confirmed job replay is Execution::AlreadyCompleted.
+
+Close with `close` at application shutdown. Do not distribute test activation
+keys, machine credentials, cached grants or vendor management API keys.
+See [QUICKSTART.md](https://www.licentivo.com/en/docs.html#quickstart) and the
+[small desktop example](https://www.licentivo.com/en/docs.html#example).
+MIT licensed; bundled dependencies retain their licenses (NOTICE).
+
+For advanced in-code JSON settings, use `Client::open_config(config_json)`. It starts automatically and accepts base_url, cache_path and app_version without a file.

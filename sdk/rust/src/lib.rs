@@ -11,6 +11,8 @@ struct NativeClient { _private: [u8; 0] }
 struct NativeError { http_status: c_int, code: [c_char; 80], request_id: [c_char; 128], retryable: c_int, retry_after_seconds: c_int }
 type Action = unsafe extern "C" fn(*mut c_void) -> c_int;
 extern "C" {
+    fn ln_init(config: *const c_char) -> *mut NativeClient;
+    fn ln_init_product(product: *const c_char, keys: *const c_char, key: *const c_char) -> *mut NativeClient;
     fn ln_init_file_with_license(path: *const c_char, key: *const c_char) -> *mut NativeClient;
     fn ln_start(client: *mut NativeClient) -> c_int;
     fn ln_destroy(client: *mut NativeClient);
@@ -72,11 +74,27 @@ pub struct Client { native: NonNull<NativeClient> }
 // Ownership can move to a worker thread; concurrent shared access is not exposed.
 unsafe impl Send for Client {}
 impl Client {
+    pub fn open_config(config_json: &str) -> Result<Self, Error> {
+        let config = input(config_json)?;
+        let native = NonNull::new(unsafe { ln_init(config.as_ptr()) })
+            .ok_or_else(|| Error::local("CONFIGURATION_ERROR", "Check the in-code configuration and activation input"))?;
+        let client = Self { native };
+        client.checked(unsafe { ln_start(client.ptr()) })?;
+        Ok(client)
+    }
+    pub fn open_product(product_id: &str, trusted_keys_json: &str, customer_key: &str) -> Result<Self, Error> {
+        let (product, keys, key) = (input(product_id)?, input(trusted_keys_json)?, input(customer_key.trim())?);
+        let native = NonNull::new(unsafe { ln_init_product(product.as_ptr(), keys.as_ptr(), key.as_ptr()) })
+            .ok_or_else(|| Error::local("CONFIGURATION_ERROR", "Check product ID, public keys and activation input"))?;
+        let client = Self { native };
+        client.checked(unsafe { ln_start(client.ptr()) })?;
+        Ok(client)
+    }
     pub fn open_with_license(path: impl AsRef<Path>, customer_key: &str) -> Result<Self, Error> {
         let path = path.as_ref().to_str().ok_or_else(|| Error::local("INVALID_INPUT", "Product path must be valid UTF-8"))?;
         let (path, key) = (input(path)?, input(customer_key)?);
         let native = NonNull::new(unsafe { ln_init_file_with_license(path.as_ptr(), key.as_ptr()) })
-            .ok_or_else(|| Error::local("CONFIGURATION_ERROR", "Check product.json, pinned keys and local storage"))?;
+            .ok_or_else(|| Error::local("CONFIGURATION_ERROR", "Check product ID, public keys and local storage"))?;
         let client = Self { native };
         client.checked(unsafe { ln_start(client.ptr()) })?;
         Ok(client)

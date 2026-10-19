@@ -1,6 +1,12 @@
 # frozen_string_literal: true
 require_relative '../lib/licentivo'
 
+# BEGIN LICENTIVO PRODUCT
+# Copy Product ID and all key ID/public key pairs from Console > Products > Signing public keys.
+PRODUCT_ID = 'YOUR_PRODUCT_ID'
+TRUSTED_KEYS = {'YOUR_KEY_ID' => 'YOUR_PUBLIC_KEY'}.freeze
+# END LICENTIVO PRODUCT
+
 def setting(name, fallback)
   value = ENV[name]
   value.nil? || value.empty? ? fallback : value
@@ -13,8 +19,8 @@ end
 
 begin
   # A GUI supplies the activation input. Later starts use an empty key.
-  Licentivo::Client.open_with_license(
-    setting('LICENTIVO_CONFIG', 'product.json'),
+  Licentivo::Client.open_product(
+    PRODUCT_ID, TRUSTED_KEYS,
     setting('LICENTIVO_LICENSE_KEY', '')
   ) do |client|
     feature = setting('LICENTIVO_FEATURE', 'export')

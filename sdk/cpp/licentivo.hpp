@@ -12,7 +12,10 @@ class Client {
  std::function<void(const std::string&)> listener;
  void require(int ok) {if(!ok){ln_error_info info{};ln_get_error_info(client,&info);if(!info.code[0])throw std::runtime_error(ln_last_error(client));throw APIError(info);}}
  std::string result(char*value){if(!value)require(0);std::string out(value);ln_free_string(value);return out;}
+explicit Client(ln_client*handle):client(handle){if(!client)throw std::invalid_argument("invalid product ID, public keys or license key");}
 public:
+ static Client FromConfig(const std::string&configJSON){return Client(ln_init(configJSON.c_str()));}
+ static Client ForProduct(const std::string&productID,const std::string&trustedKeysJSON,const std::string&licenseKey){return Client(ln_init_product(productID.c_str(),trustedKeysJSON.c_str(),licenseKey.c_str()));}
  std::string Status(){return result(ln_status(client));}
  // Local entitlement decision. Metered operations still require Reserve.
  std::string FeatureStatus(const std::string&feature){return result(ln_feature_status(client,feature.c_str()));}

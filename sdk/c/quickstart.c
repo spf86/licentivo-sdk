@@ -2,6 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* BEGIN LICENTIVO PRODUCT */
+/* Copy Product ID and all key ID/public key pairs from Console > Products > Signing public keys. */
+static const char *PRODUCT_ID = "YOUR_PRODUCT_ID";
+static const char *TRUSTED_KEYS_JSON = "{\"YOUR_KEY_ID\":\"YOUR_PUBLIC_KEY\"}";
+/* END LICENTIVO PRODUCT */
+
 static const char *setting(const char *name, const char *fallback) {
     const char *value = getenv(name);
     return value && value[0] ? value : fallback;
@@ -19,9 +25,9 @@ static int export_report(void *context) {
 
 int main(void) {
     /* Keep the handle to report startup errors. A GUI supplies the activation input. */
-    ln_client *client = ln_init_file_with_license(setting("LICENTIVO_CONFIG", "product.json"), setting("LICENTIVO_LICENSE_KEY", ""));
+    ln_client *client = ln_init_product(PRODUCT_ID, TRUSTED_KEYS_JSON, setting("LICENTIVO_LICENSE_KEY", ""));
     if (!client) {
-        fputs("Startup failed: check product.json and supply a license key for first activation.\n", stderr);
+        fputs("Startup failed: check the product ID and public keys and supply a license key for first activation.\n", stderr);
         return 2;
     }
     if (!ln_start(client)) {
