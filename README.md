@@ -4,7 +4,10 @@ Integrate license activation, signed feature permissions, device binding and
 usage limits into your own Go, Java, C, C++, C#, Python, Node.js, Rust or Ruby app.
 
 Start with [QUICKSTART.md](QUICKSTART.md). To try a small application already
-connected to the SDK, use [EXAMPLE.md](EXAMPLE.md); the Windows desktop entry is
+connected to the SDK, download the ready-to-run Windows application from the
+[Quick example page](https://www.licentivo.com/zh/docs.html#example). Its runtime
+is included. Optional source and build instructions are in [EXAMPLE.md](EXAMPLE.md);
+the Windows desktop entry is
 under 50 lines and demonstrates an allowed CSV export and a denied Pro export.
 The public example issues a separate three-day license to each visitor, starting
 at that license's first activation. Reclaiming/downloading does not extend it.
