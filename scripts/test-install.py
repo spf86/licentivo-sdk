@@ -62,25 +62,34 @@ def native(args, work, packages):
     if shutil.which("cmake"):
         (folder / "CMakeLists.txt").write_text('''cmake_minimum_required(VERSION 3.18)
 project(independent_consumer LANGUAGES C CXX)
-find_package(Licentivo 0.10 REQUIRED)
+find_package(Licentivo @VERSION@ EXACT REQUIRED)
 add_executable(consumer_c consumer.c)
 target_link_libraries(consumer_c PRIVATE Licentivo::C)
 add_executable(consumer_cpp consumer.cpp)
 target_link_libraries(consumer_cpp PRIVATE Licentivo::CPP)
 set_target_properties(consumer_cpp PROPERTIES CXX_STANDARD 17)
-''')
+'''.replace('@VERSION@', VERSION))
         command = ["cmake", "-S", folder, "-B", folder / "build", f"-DCMAKE_PREFIX_PATH={prefix}"]
         if os.name == "nt" and args.curl_root:
             curl = pathlib.Path(args.curl_root)
             generator = "Ninja" if shutil.which("ninja") else "MinGW Makefiles"
             command += ["-G", generator, "-DCMAKE_C_COMPILER=gcc", "-DCMAKE_CXX_COMPILER=g++", f"-DCURL_INCLUDE_DIR={curl / 'include'}", f"-DCURL_LIBRARY={curl / 'lib/libcurl.dll.a'}"]
-        run(*command, cwd=work)
-        run("cmake", "--build", folder / "build", "--config", "Release", cwd=work)
-        for name in ("consumer_c", "consumer_cpp"):
-            executable = folder / "build" / (name + (".exe" if os.name == "nt" else ""))
-            if not executable.exists() and os.name == "nt":
-                executable = folder / "build/Release" / (name + ".exe")
-            run(executable, cwd=work)
+        # Package builders and consumers may use different curl discovery modes.
+        # In module mode only CURL::libcurl exists; curl's config package may
+        # instead expose it as an alias for CURL::libcurl_shared/static.
+        for mode in ("default", "module"):
+            build_folder = folder / ("build-" + mode)
+            current = command.copy()
+            current[current.index("-B") + 1] = build_folder
+            if mode == "module":
+                current.append("-DCURL_NO_CURL_CMAKE=TRUE")
+            run(*current, cwd=work)
+            run("cmake", "--build", build_folder, "--config", "Release", cwd=work)
+            for name in ("consumer_c", "consumer_cpp"):
+                executable = build_folder / (name + (".exe" if os.name == "nt" else ""))
+                if not executable.exists() and os.name == "nt":
+                    executable = build_folder / "Release" / (name + ".exe")
+                run(executable, cwd=work)
     elif os.name == "nt" and args.curl_root:
         curl = pathlib.Path(args.curl_root)
         for compiler, file in (("gcc", "consumer.c"), ("g++", "consumer.cpp")):

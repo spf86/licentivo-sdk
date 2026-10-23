@@ -1,6 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.licentivo</groupId><artifactId>licentivo-sdk</artifactId><version>0.11.0</version>
+  <groupId>com.licentivo</groupId><artifactId>licentivo-sdk</artifactId><version>0.11.1</version>
   <name>Licentivo SDK</name><description>Java 17+ licensing client: license activation and private device credentials, pinned signature verification, feature access, policy heartbeats, offline grants, floating seats and metered reserve/commit/cancel workflows. Includes runnable examples and installation documentation.</description>
   <url>https://github.com/spf86/licentivo-sdk</url>
   <licenses><license><name>MIT License</name><url>https://opensource.org/license/mit</url><distribution>repo</distribution></license></licenses>

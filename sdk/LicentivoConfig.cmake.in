@@ -6,3 +6,13 @@ if(NOT WIN32)
   find_dependency(OpenSSL)
 endif()
 include("${CMAKE_CURRENT_LIST_DIR}/LicentivoTargets.cmake")
+
+# curl's config package may make CURL::libcurl an alias for a shared/static
+# target. CMake records that underlying name in an install export, but a
+# consumer using FindCURL module mode only has the public CURL::libcurl target.
+# Resolve the dependency using the consumer's discovered curl installation.
+get_target_property(_licentivo_libraries Licentivo::C INTERFACE_LINK_LIBRARIES)
+list(TRANSFORM _licentivo_libraries REPLACE "^CURL::libcurl_(shared|static)$" "CURL::libcurl")
+set_property(TARGET Licentivo::C PROPERTY INTERFACE_LINK_LIBRARIES "${_licentivo_libraries}")
+unset(_licentivo_libraries)
+check_required_components(Licentivo)

@@ -1,16 +1,16 @@
-# Install Licentivo SDK 0.11.0
+# Install Licentivo SDK 0.11.1
 
 Run the package manager command inside your own application project.
 
 | Language | Install |
 | --- | --- |
-| Go | `go get github.com/spf86/licentivo-sdk@v0.11.0` |
-| Python | `python -m pip install "licentivo-sdk==0.11.0"` |
-| Node.js | `npm install @licentivo/sdk@0.11.0` |
-| C# | `dotnet add package Licentivo.SDK --version 0.11.0` |
-| Java | Gradle dependency: `implementation 'com.licentivo:licentivo-sdk:0.11.0'`; enable Maven Central. The Java README also has Maven XML. |
-| Rust | `cargo add licentivo@=0.11.0` |
-| Ruby | `gem install licentivo-sdk --version 0.11.0` |
+| Go | `go get github.com/spf86/licentivo-sdk@v0.11.1` |
+| Python | `python -m pip install "licentivo-sdk==0.11.1"` |
+| Node.js | `npm install @licentivo/sdk@0.11.1` |
+| C# | `dotnet add package Licentivo.SDK --version 0.11.1` |
+| Java | Gradle dependency: `implementation 'com.licentivo:licentivo-sdk:0.11.1'`; enable Maven Central. The Java README also has Maven XML. |
+| Rust | `cargo add licentivo@=0.11.1` |
+| Ruby | `gem install licentivo-sdk --version 0.11.1` |
 
 No source ZIP, manual extraction or local path override is needed. C/C++ use the
 automatic, checksum-verified native package installer on the [SDK installation

@@ -11,7 +11,7 @@ Requirements: .NET 8+; the project declares BouncyCastle.Cryptography for signat
 Install the public SDK package in your existing application project:
 
 ```sh
-dotnet add package Licentivo.SDK --version 0.11.0
+dotnet add package Licentivo.SDK --version 0.11.1
 ```
 
 No SDK source download, extraction or local path dependency is required.

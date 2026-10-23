@@ -6,10 +6,10 @@ example](EXAMPLE.md) is for trying activation and feature gates before integrati
 ## 1. Install the SDK in your application
 
 Select your language in the [SDK installation guide](https://www.licentivo.com/en/docs.html#quickstart).
-Install SDK 0.11.0 with your language's package manager. For Go, run:
+Install SDK 0.11.1 with your language's package manager. For Go, run:
 
 ```sh
-go get github.com/spf86/licentivo-sdk@v0.11.0
+go get github.com/spf86/licentivo-sdk@v0.11.1
 ```
 
 Other languages use the pinned commands in [README.md](README.md#install-in-your-application).
