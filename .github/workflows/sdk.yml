@@ -176,7 +176,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release download "v$(cat VERSION)" --repo "$GITHUB_REPOSITORY" --pattern 'licentivo-sdk-*.tgz' --dir dist
       - name: Publish through the configured npm trusted publisher
-        run: npm publish dist/licentivo-sdk-*.tgz --access public --ignore-scripts --provenance
+        run: npm publish ./dist/licentivo-sdk-*.tgz --access public --ignore-scripts --provenance
 
   crates-publish:
     name: Publish Rust SDK to crates.io
@@ -204,13 +204,13 @@ jobs:
       - name: Install native build dependencies
         run: sudo apt-get update -qq && sudo apt-get install -y libcurl4-openssl-dev libssl-dev
       - name: Extract the verified crate
-        run: mkdir crate && tar -xzf dist/licentivo-*.crate -C crate
+        run: mkdir "$RUNNER_TEMP/licentivo-crate" && tar -xzf dist/licentivo-*.crate -C "$RUNNER_TEMP/licentivo-crate"
       - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9
         id: auth
       - name: Publish the Rust SDK
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: cargo publish --manifest-path "crate/licentivo-$(cat VERSION)/Cargo.toml" --locked
+        run: cargo publish --manifest-path "$RUNNER_TEMP/licentivo-crate/licentivo-$(cat VERSION)/Cargo.toml" --locked
 
   linux:
     name: Build and install all nine clients on Linux
