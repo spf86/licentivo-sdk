@@ -1,0 +1,104 @@
+{
+  "version": "0.11.2",
+  "published": true,
+  "checked_at": "2026-10-24T17:44:01.199879+00:00",
+  "source_tag": "v0.11.2",
+  "source_commit": "0c35ad12e0f836ed5f4f1e64e8890d39a408a56b",
+  "github_release": "https://github.com/spf86/licentivo-sdk/releases/tag/v0.11.2",
+  "manifest_sha256": "3552bb72bb61a96d0dee7b9b7f98c4c4976b253b033912f6b0a19ead00983a11",
+  "release_artifact_count": 22,
+  "default_latest_verified": true,
+  "languages": [
+    {
+      "language": "Go",
+      "consumer_install_passed": true
+    },
+    {
+      "language": "Python",
+      "consumer_install_passed": true
+    },
+    {
+      "language": "C#",
+      "consumer_install_passed": true
+    },
+    {
+      "language": "JavaScript/Node.js",
+      "consumer_install_passed": true
+    },
+    {
+      "language": "Java",
+      "consumer_install_passed": true
+    },
+    {
+      "language": "Ruby",
+      "consumer_install_passed": true
+    },
+    {
+      "language": "Rust",
+      "consumer_install_passed": true
+    },
+    {
+      "language": "C",
+      "consumer_install_passed": true
+    },
+    {
+      "language": "C++",
+      "consumer_install_passed": true
+    }
+  ],
+  "registries": {
+    "go": {
+      "url": "https://proxy.golang.org/github.com/spf86/licentivo-sdk/@latest",
+      "http_status": 200,
+      "version": "0.11.2",
+      "is_expected": true
+    },
+    "npm": {
+      "url": "https://registry.npmjs.org/@licentivo%2fsdk",
+      "http_status": 200,
+      "version": "0.11.2",
+      "is_expected": true
+    },
+    "pypi": {
+      "url": "https://pypi.org/pypi/licentivo-sdk/json",
+      "http_status": 200,
+      "version": "0.11.2",
+      "is_expected": true
+    },
+    "nuget": {
+      "url": "https://api.nuget.org/v3-flatcontainer/licentivo.sdk/index.json",
+      "http_status": 200,
+      "version": "0.11.2",
+      "is_expected": true
+    },
+    "crates": {
+      "url": "https://crates.io/api/v1/crates/licentivo",
+      "http_status": 200,
+      "version": "0.11.2",
+      "is_expected": true
+    },
+    "rubygems": {
+      "url": "https://rubygems.org/api/v1/versions/licentivo-sdk/latest.json",
+      "http_status": 200,
+      "version": "0.11.2",
+      "is_expected": true
+    },
+    "maven": {
+      "url": "https://repo.maven.apache.org/maven2/com/licentivo/licentivo-sdk/maven-metadata.xml",
+      "http_status": 200,
+      "version": "0.11.2",
+      "is_expected": true
+    }
+  },
+  "maven": {
+    "coordinates": "com.licentivo:licentivo-sdk:0.11.2",
+    "deployment_id": "24e692b4-7a7b-43ee-abb0-bf282436b7fb",
+    "published_at": "2026-10-24T17:42:58.835859+00:00",
+    "signed_artifacts_verified": 4,
+    "jar_matches_github_manifest": true
+  },
+  "validation": {
+    "all_platform_builds": "https://github.com/spf86/licentivo-sdk/actions/runs/40115423424",
+    "npm_crates_publish_retry": "https://github.com/spf86/licentivo-sdk/actions/runs/40116149018"
+  }
+}
