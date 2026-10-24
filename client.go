@@ -30,17 +30,20 @@ import (
 type Claims = lease.Claims
 
 type Config struct {
-	AppVersion     string            `json:"app_version"`
-	BaseURL        string            `json:"base_url"`
-	ProductID      string            `json:"product_id"`
-	LicenseKey     string            `json:"license_key"`
-	DeviceID       string            `json:"device_id"`
-	DeviceName     string            `json:"device_name"`
-	TrustedKeys    map[string]string `json:"trusted_keys"`
-	CachePath      string            `json:"cache_path"`
-	AllowHTTP      bool              `json:"allow_http"`
-	TimeoutSeconds int               `json:"timeout_seconds"`
-	ProxyURL       string            `json:"proxy_url"`
+	LaunchConnectionID string            `json:"launch_connection_id,omitempty"`
+	IdentityToken      string            `json:"identity_token,omitempty"`
+	Environment        string            `json:"environment,omitempty"`
+	AppVersion         string            `json:"app_version"`
+	BaseURL            string            `json:"base_url"`
+	ProductID          string            `json:"product_id"`
+	LicenseKey         string            `json:"license_key"`
+	DeviceID           string            `json:"device_id"`
+	DeviceName         string            `json:"device_name"`
+	TrustedKeys        map[string]string `json:"trusted_keys"`
+	CachePath          string            `json:"cache_path"`
+	AllowHTTP          bool              `json:"allow_http"`
+	TimeoutSeconds     int               `json:"timeout_seconds"`
+	ProxyURL           string            `json:"proxy_url"`
 }
 type APIError struct {
 	Status            int
@@ -55,28 +58,32 @@ func (e *APIError) Error() string { return fmt.Sprintf("Licentivo %s (%d)", e.Co
 func (e *APIError) Unwrap() error { return e.Cause }
 
 type Client struct {
-	featureTaskMu sync.Mutex
-	auth          credentialState
-	authDirty     bool
-	view          atomic.Pointer[localView]
-	listener      atomic.Pointer[statusListener]
-	waitHeartbeat func(context.Context, time.Duration) bool
-	profile       DeviceProfile
-	sessionID     string
-	cfg           Config
-	keys          map[string]ed25519.PublicKey
-	http          *http.Client
-	mu            sync.Mutex
-	state         cache
-	heartbeat     int
-	lastWall      time.Time
-	lastTick      time.Time
-	cancel        context.CancelFunc
-	done          chan struct{}
-	workersMu     sync.Mutex
-	refreshCancel context.CancelFunc
-	refreshDone   chan struct{}
-	closed        atomic.Bool
+	denied         atomic.Bool
+	retryingLogout atomic.Bool
+	logoutJournal  logoutJournal
+	logoutBindings map[string]bool
+	featureTaskMu  sync.Mutex
+	auth           credentialState
+	authDirty      bool
+	view           atomic.Pointer[localView]
+	listener       atomic.Pointer[statusListener]
+	waitHeartbeat  func(context.Context, time.Duration) bool
+	profile        DeviceProfile
+	sessionID      string
+	cfg            Config
+	keys           map[string]ed25519.PublicKey
+	http           *http.Client
+	mu             sync.Mutex
+	state          cache
+	heartbeat      int
+	lastWall       time.Time
+	lastTick       time.Time
+	cancel         context.CancelFunc
+	done           chan struct{}
+	workersMu      sync.Mutex
+	refreshCancel  context.CancelFunc
+	refreshDone    chan struct{}
+	closed         atomic.Bool
 }
 type cache struct {
 	Version     int            `json:"version"`
@@ -85,6 +92,7 @@ type cache struct {
 	ObservedAt  int64          `json:"observed_at"`
 }
 type response struct {
+	LogoutTicket *LogoutTicket   `json:"logout_ticket,omitempty"`
 	DeviceKey    string          `json:"device_key,omitempty"`
 	Consumption  *Consumption    `json:"consumption,omitempty"`
 	Reservation  *Reservation    `json:"reservation,omitempty"`
@@ -152,10 +160,14 @@ func New(cfg Config) (*Client, error) {
 	}
 	c := &Client{cfg: cfg, profile: profile, sessionID: requestUUID(), keys: keys, http: &http.Client{Transport: transport, Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, heartbeat: 3600}
 	c.loadCredential()
-	if cfg.LicenseKey == "" && c.auth.DeviceKey == "" {
+	c.loadLogoutJournal()
+	if c.denied.Load() {
+		c.auth = credentialState{}
+	}
+	if cfg.LicenseKey == "" && cfg.IdentityToken == "" && c.auth.DeviceKey == "" && !c.denied.Load() {
 		return nil, errors.New("enter a license key or temporary activation code")
 	}
-	if cfg.CachePath != "" {
+	if cfg.CachePath != "" && !c.denied.Load() {
 		if info, e := os.Stat(cfg.CachePath); e == nil && info.Size() <= lease.MaxSize {
 			if b, e := os.ReadFile(cfg.CachePath); e == nil {
 				var s cache
@@ -173,6 +185,9 @@ func New(cfg Config) (*Client, error) {
 		}
 	}
 	c.publish(false, nil)
+	if len(c.logoutJournal.Pending) > 0 {
+		c.startLogoutRecovery()
+	}
 	return c, nil
 }
 func licenseHash(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
@@ -192,6 +207,9 @@ func (c *Client) RefreshOnline(ctx context.Context) (lease.Claims, error) {
 	return c.call(ctx, "activate", true)
 }
 func (c *Client) check() (lease.Claims, error) {
+	if c.denied.Load() {
+		return lease.Claims{}, &APIError{Code: "LAUNCH_LOGIN_REQUIRED"}
+	}
 	now := time.Now()
 	if !c.lastWall.IsZero() {
 		elapsed := time.Since(c.lastTick)
@@ -204,6 +222,9 @@ func (c *Client) check() (lease.Claims, error) {
 	if err == nil {
 		err = versionContext(claims, c.cfg.AppVersion, c.sessionID)
 	}
+	if err == nil {
+		err = c.accountContext(claims)
+	}
 	return claims, err
 }
 func (c *Client) CheckFeature(feature string) bool {
@@ -212,6 +233,9 @@ func (c *Client) CheckFeature(feature string) bool {
 func (c *Client) call(ctx context.Context, operation string, forceOnline bool) (lease.Claims, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.denied.Load() {
+		return lease.Claims{}, &APIError{Code: "LAUNCH_LOGIN_REQUIRED"}
+	}
 	if claims, err := c.check(); !forceOnline && operation == "activate" && err == nil && claims.OfflineMode() == "permanent" && claims.RuntimePolicy.HeartbeatSeconds == 0 {
 		return claims, nil
 	}
@@ -231,7 +255,18 @@ func (c *Client) call(ctx context.Context, operation string, forceOnline bool) (
 		}
 	}
 	out, temporary, e := c.request(ctx, operation, activation)
+	if c.denied.Load() {
+		if e == nil && out.LogoutTicket != nil {
+			c.auth.LogoutTicket = out.LogoutTicket
+		}
+		return lease.Claims{}, &APIError{Code: "LAUNCH_LOGIN_REQUIRED"}
+	}
 	if e != nil {
+		if explicitRevocation(e) {
+			c.denyLocked()
+			c.publish(false, e)
+			return lease.Claims{}, e
+		}
 		if !forceOnline && temporary && ctx.Err() == nil {
 			if claims, ve := c.check(); ve == nil && claims.OfflineMode() != "none" {
 				c.publish(false, e)
@@ -250,6 +285,9 @@ func (c *Client) call(ctx context.Context, operation string, forceOnline bool) (
 	claims, e := lease.Verify(*out.Lease, c.keys, c.cfg.ProductID, c.cfg.DeviceID, time.Now())
 	if e == nil {
 		e = versionContext(claims, c.cfg.AppVersion, c.sessionID)
+	}
+	if e == nil {
+		e = c.accountContext(claims)
 	}
 	if e != nil {
 		c.invalidate()
@@ -309,7 +347,11 @@ func (c *Client) requestExtra(ctx context.Context, op, activation, suppliedID st
 			case <-time.After(200 * time.Millisecond):
 			}
 		}
-		req, e := http.NewRequestWithContext(ctx, "POST", c.cfg.BaseURL+"/api/v1/"+op, bytes.NewReader(body))
+		path := op
+		if op == "activate" && c.auth.DeviceKey == "" && c.cfg.IdentityToken != "" {
+			path = "launch/exchange"
+		}
+		req, e := http.NewRequestWithContext(ctx, "POST", c.cfg.BaseURL+"/api/v1/"+path, bytes.NewReader(body))
 		if e != nil {
 			return response{}, false, e
 		}
@@ -398,31 +440,14 @@ func (c *Client) save() error {
 }
 func (c *Client) invalidate() {
 	c.state = cache{}
-	if c.cfg.CachePath != "" {
+	if c.cfg.CachePath != "" && !c.denied.Load() {
 		_ = os.Remove(c.cfg.CachePath)
 	}
 	c.publish(false, nil)
 }
 func (c *Client) Deactivate(ctx context.Context) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	var claims lease.Claims
-	b, _ := base64.RawURLEncoding.DecodeString(c.state.Lease.Payload)
-	_ = json.Unmarshal(b, &claims)
-	floating := claims.Capabilities != nil && claims.Capabilities.LicenseModel == "floating"
-	c.invalidate()
-	if claims.ActivationID == "" {
-		return nil
-	}
-	_, _, e := c.request(ctx, "deactivate", claims.ActivationID)
-	if e == nil {
-		c.publish(false, &APIError{Code: "DEVICE_RELEASED"})
-		if !floating {
-			_ = os.Remove(c.cfg.CachePath + ".credential.json")
-			c.auth = credentialState{}
-		}
-	}
-	return e
+	_, err := c.Logout(ctx)
+	return err
 }
 
 // StartHeartbeat owns one cancellable goroutine. Errors are delivered to the callback, without credentials.

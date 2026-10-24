@@ -4,7 +4,7 @@ require 'json'
 require 'monitor'
 
 module Licentivo
-  VERSION = '0.11.1'
+  VERSION = '0.11.2'
 
   class Error < StandardError
     attr_reader :code, :http_status, :request_id, :retryable, :retry_after_seconds
@@ -68,6 +68,7 @@ module Licentivo
           resolve_metered_feature: ['ln_resolve_metered_feature', [p,p,i], i],
           validate: ['ln_validate', [p], i], heartbeat: ['ln_heartbeat', [p], i],
           refresh_online: ['ln_refresh_online', [p], i], deactivate: ['ln_deactivate', [p], i],
+          logout: ['ln_logout', [p], i], retry_pending_logouts: ['ln_retry_pending_logouts', [p], i], logout_pending: ['ln_logout_pending', [p], i],
           reserve: ['ln_reserve', [p,p,q,p], p], consume: ['ln_consume', [p,p,q,p], p],
           commit: ['ln_commit', [p,p,p], p], cancel: ['ln_cancel', [p,p,p], p],
           offline_request: ['ln_offline_request', [p,p], p], import_offline: ['ln_import_offline', [p,p,p], i],
@@ -151,9 +152,15 @@ module Licentivo
     def validate = checked(:validate)
     def heartbeat = checked(:heartbeat)
     def refresh_online = checked(:refresh_online)
-    def deactivate = checked(:deactivate)
-    def status = read_json(:status)
-    def feature_status(feature) = read_json(:feature_status, Native.input(feature))
+    def deactivate = logout
+    def logout
+      @signed_out = true
+      checked(:logout)
+    end
+    def retry_pending_logouts = checked(:retry_pending_logouts)
+    def logout_pending? = @lock.synchronize { Native.call(:logout_pending, active) != 0 }
+    def status = @signed_out ? signed_out_status : read_json(:status)
+    def feature_status(feature) = @signed_out ? signed_out_status : read_json(:feature_status, Native.input(feature))
     def reserve(feature, quantity, job_id) = read_json(:reserve, Native.input(feature), integer(quantity), Native.input(job_id))
     def consume(feature, quantity, job_id) = read_json(:consume, Native.input(feature), integer(quantity), Native.input(job_id))
     def commit(reservation_id, job_id) = read_json(:commit, Native.input(reservation_id), Native.input(job_id))
@@ -187,6 +194,7 @@ module Licentivo
     end
 
     private
+    def signed_out_status = { 'state' => 'released', 'allowed' => false, 'code' => 'LAUNCH_LOGIN_REQUIRED', 'request_id' => '', 'retryable' => false, 'lease_valid_until' => 0 }
     def integer(value)
       raise ArgumentError, 'Quantity must be a positive signed 64-bit integer' unless value.is_a?(Integer) && value.positive? && value <= 0x7fff_ffff_ffff_ffff
       value
@@ -207,7 +215,10 @@ module Licentivo
         retryable: info[212,4].unpack1('i') != 0, retry_after_seconds: info[216,4].unpack1('i'))
     end
     def checked(name, *arguments)
-      @lock.synchronize { raise error if Native.call(name, active, *arguments) == 0 }
+      @lock.synchronize do
+        raise Error.new('Complete a fresh login', code: 'LAUNCH_LOGIN_REQUIRED') if @signed_out && ![:logout, :deactivate, :retry_pending_logouts].include?(name)
+        raise error if Native.call(name, active, *arguments) == 0
+      end
       true
     end
     def read_json(name, *arguments)
@@ -218,6 +229,7 @@ module Licentivo
       end
     end
     def run_callback(name, *arguments)
+      raise Error.new('Complete a fresh login', code: 'LAUNCH_LOGIN_REQUIRED') if @signed_out
       raise ArgumentError, 'Supply your business operation as a block' unless block_given?
       @lock.synchronize do
         raise Error.new('A business callback is already running', code: 'WORKFLOW_BUSY') if @in_callback

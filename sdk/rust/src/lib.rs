@@ -26,6 +26,9 @@ extern "C" {
     fn ln_heartbeat(client: *mut NativeClient) -> c_int;
     fn ln_refresh_online(client: *mut NativeClient) -> c_int;
     fn ln_deactivate(client: *mut NativeClient) -> c_int;
+    fn ln_logout(client: *mut NativeClient) -> c_int;
+    fn ln_retry_pending_logouts(client: *mut NativeClient) -> c_int;
+    fn ln_logout_pending(client: *mut NativeClient) -> c_int;
     fn ln_reserve(client: *mut NativeClient, feature: *const c_char, quantity: i64, id: *const c_char) -> *mut c_char;
     fn ln_commit(client: *mut NativeClient, reservation: *const c_char, id: *const c_char) -> *mut c_char;
     fn ln_cancel(client: *mut NativeClient, reservation: *const c_char, id: *const c_char) -> *mut c_char;
@@ -75,12 +78,17 @@ pub struct Client { native: NonNull<NativeClient> }
 unsafe impl Send for Client {}
 impl Client {
     pub fn open_config(config_json: &str) -> Result<Self, Error> {
+        let mut client = Self::init_config(config_json)?;
+        client.start()?;
+        Ok(client)
+    }
+    /// Load local state without activating. Keep this client alive to recover a
+    /// pending logout even when the user is already signed out.
+    pub fn init_config(config_json: &str) -> Result<Self, Error> {
         let config = input(config_json)?;
         let native = NonNull::new(unsafe { ln_init(config.as_ptr()) })
             .ok_or_else(|| Error::local("CONFIGURATION_ERROR", "Check the in-code configuration and activation input"))?;
-        let client = Self { native };
-        client.checked(unsafe { ln_start(client.ptr()) })?;
-        Ok(client)
+        Ok(Self { native })
     }
     pub fn open_product(product_id: &str, trusted_keys_json: &str, customer_key: &str) -> Result<Self, Error> {
         let (product, keys, key) = (input(product_id)?, input(trusted_keys_json)?, input(customer_key.trim())?);
@@ -136,10 +144,14 @@ impl Client {
     pub fn resolve_metered_feature(&mut self, job_id: &str, business_succeeded: bool) -> Result<(), Error> {
         let id = input(job_id)?; self.checked(unsafe { ln_resolve_metered_feature(self.ptr(), id.as_ptr(), business_succeeded as c_int) })
     }
+    pub fn start(&mut self) -> Result<(), Error> { self.checked(unsafe { ln_start(self.ptr()) }) }
     pub fn validate(&mut self) -> Result<(), Error> { self.checked(unsafe { ln_validate(self.ptr()) }) }
     pub fn heartbeat(&mut self) -> Result<(), Error> { self.checked(unsafe { ln_heartbeat(self.ptr()) }) }
     pub fn refresh_online(&mut self) -> Result<(), Error> { self.checked(unsafe { ln_refresh_online(self.ptr()) }) }
     pub fn deactivate(&mut self) -> Result<(), Error> { self.checked(unsafe { ln_deactivate(self.ptr()) }) }
+    pub fn logout(&mut self) -> Result<(), Error> { self.checked(unsafe { ln_logout(self.ptr()) }) }
+    pub fn retry_pending_logouts(&mut self) -> Result<(), Error> { self.checked(unsafe { ln_retry_pending_logouts(self.ptr()) }) }
+    pub fn logout_pending(&self) -> bool { unsafe { ln_logout_pending(self.ptr()) != 0 } }
     pub fn close(self) { drop(self); }
     pub fn reserve(&mut self, feature: &str, quantity: i64, job_id: &str) -> Result<Value, Error> {
         let (feature, id) = (input(feature)?, input(job_id)?);

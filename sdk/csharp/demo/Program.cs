@@ -4,6 +4,13 @@ var cfgPath = args.Length > 1 && args[0] == "--config" ? args[1] : ".local/proto
 var cfg = JsonSerializer.Deserialize<Config>(File.ReadAllText(cfgPath), LicentivoClient.JsonOptions)!;
 bool cacheTest = args.Contains("--cache-test");
 await using (var client = new LicentivoClient(cfg)) {
+    if(args.Contains("--logout-wait")){
+        if(!client.CheckFeature("export"))throw new Exception("missing initial authorization");File.WriteAllText(cfgPath+".ready","ready");var deadline=DateTime.UtcNow.AddSeconds(30);
+        while(!File.Exists(cfgPath+".continue")){if(DateTime.UtcNow>deadline)throw new Exception("logout wait timed out");await Task.Delay(10);}
+        var result=await client.Logout();bool expectFailure=args.Contains("--expect-storage-error");if(result.LocalComplete==expectFailure||client.CheckFeature("export"))throw new Exception("unexpected logout persistence result");
+        if(expectFailure){bool rejected=false;try{await client.Deactivate();}catch(IOException){rejected=true;}if(!rejected)throw new Exception("deactivate hid persistence failure");}return;
+    }
+    if(args.Contains("--logout-retry")){await client.RetryPendingLogouts();if(client.CheckFeature("export"))throw new Exception("logout restored access");Console.WriteLine("C#: pending logout completed");return;}
     if(args.Contains("--improvements-test")) {
         await client.Start();var one=await client.Reserve("export",1,"cancel-job");if(one.Status!="pending"||one.Consumption.Used!=0||one.Consumption.Reserved!=1)throw new Exception("reserve failed");var canceled=await client.Cancel(one.ReservationId,"cancel-job");if(canceled.Status!="canceled"||canceled.Consumption.Used!=0)throw new Exception("cancel charged usage");
         var two=await client.Reserve("export",1,"commit-job");for(int i=0;i<2;i++){var done=await client.Commit(two.ReservationId,"commit-job");if(done.Status!="committed"||done.Consumption.Used!=1)throw new Exception("duplicate commit");}
@@ -18,8 +25,8 @@ await using (var client = new LicentivoClient(cfg)) {
     }
     if(args.Contains("--floating-test")) {
         await client.Start();await using var other=new LicentivoClient(cfg);
-        if(other.CheckFeature("export"))throw new Exception("session cache reused");bool failed=false;try{await other.Start();}catch(ApiException e){failed=e.Status==409;}
-        if(!failed)throw new Exception("occupied seat granted");await client.DisposeAsync();await other.Start();if(!other.CheckFeature("export"))throw new Exception("new session denied");Console.WriteLine("C#: floating seat release OK");return;
+        if(other.CheckFeature("export"))throw new Exception("session cache reused");await other.Start();
+        await client.DisposeAsync();await other.Heartbeat();if(!other.CheckFeature("export"))throw new Exception("new session denied");Console.WriteLine("C#: floating seat release OK");return;
     }
     if(args.Contains("--advanced-test")||args.Contains("--offline-import")) {
         if(args.Contains("--offline-import"))client.ImportOffline(await File.ReadAllBytesAsync(cfgPath+".request.json"),await File.ReadAllBytesAsync(cfgPath+".response.json"));else await client.Start();

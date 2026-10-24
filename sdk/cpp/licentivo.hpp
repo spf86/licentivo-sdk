@@ -43,5 +43,6 @@ public:
  void Activate(){require(ln_activate(client));}void Validate(){require(ln_validate(client));}void Heartbeat(){require(ln_heartbeat(client));}void RefreshOnline(){require(ln_refresh_online(client));}
  bool CheckFeature(const std::string&feature){return ln_check_feature(client,feature.c_str())!=0;}
  void StartHeartbeat(){require(ln_start_heartbeat(client));}void StopHeartbeat(){ln_stop_heartbeat(client);}void Deactivate(){require(ln_deactivate(client));}
+ void Logout(){require(ln_logout(client));}void RetryPendingLogouts(){require(ln_retry_pending_logouts(client));}bool LogoutPending(){return ln_logout_pending(client)!=0;}
 };
 }

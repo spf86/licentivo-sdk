@@ -1,15 +1,35 @@
 # Integrate licensing into your own software
 
-This guide starts inside your existing application. The separate [small desktop
-example](EXAMPLE.md) is for trying activation and feature gates before integrating.
+This guide starts inside your existing application. First protect one real
+operation, then add the capabilities your product's policy actually uses.
+
+## Fastest path: use the English AI integration prompt
+
+1. Open [Console Quickstart](https://www.licentivo.com/en/dashboard.html#integration).
+2. Create or select your product, create a policy, then issue a test license.
+3. Choose your application's language and system. Copy the generated English
+   prompt into an AI coding tool with your existing project open.
+4. Run the integrated application. Return to Quickstart, use **Copy activation
+   key** beside the prompt, and manually paste the key into your app's activation
+   screen or interactive CLI. The prompt does not contain the full key.
+5. Execute a real protected operation and restart the app to verify credential
+   recovery. Review the [acceptance checklist](https://www.licentivo.com/en/docs.html#acceptance).
+
+The key remains available in that browser tab for up to 24 hours, including after
+refresh or navigating back, for the same account and workspace. Logging out or
+clearing the temporary key removes it. Download the license text if you need to
+keep it longer. The license list only shows a prefix, not the complete key.
+
+For manual implementation, follow the steps below or the
+[manual integration guide](https://www.licentivo.com/en/docs.html#integration-guide).
 
 ## 1. Install the SDK in your application
 
-Select your language in the [SDK installation guide](https://www.licentivo.com/en/docs.html#quickstart).
-Install SDK 0.11.1 with your language's package manager. For Go, run:
+Select your language in the [SDK installation guide](https://www.licentivo.com/en/docs.html#sdk).
+Install SDK 0.11.2 with your language's package manager. For Go, run:
 
 ```sh
-go get github.com/spf86/licentivo-sdk@v0.11.1
+go get github.com/spf86/licentivo-sdk@v0.11.2
 ```
 
 Other languages use the pinned commands in [README.md](README.md#install-in-your-application).
@@ -22,7 +42,8 @@ Installing the common SDK does not select a product or include its public keys.
 In Console > Products, create/select your software's product and copy its Product
 ID. Click that product's **Signing public keys** and copy **every key ID and public
 key pair**. Replace `YOUR_PRODUCT_ID`, `YOUR_KEY_ID` and `YOUR_PUBLIC_KEY` in your
-initialization code. Quick integration can also generate those code constants.
+initialization code. Console Quickstart includes this actual configuration in the
+English integration prompt.
 
 There is no product configuration file to download, preserve or place in a working
 directory. The SDK defaults to `https://www.licentivo.com`; ordinary integration
@@ -63,14 +84,15 @@ signature verification, private credential/cache storage and policy heartbeats.
 
 ## 4. Verify in your own application
 
-1. Activate with your test key and execute an allowed feature.
+1. Manually paste your test key into the app, activate and execute an allowed feature.
 2. Close and reopen under the same user. Pass an empty key to restore the SDK's
    saved machine credential; customers do not need to retype their key.
 3. Try a feature absent from the license. Its business callback must not run or
    produce an output file. Restore the correct feature name after this check.
-4. Suspend the test license in the console and explicitly refresh online. A
+4. Use a local fixture to test expired, revoked and released responses. A
    confirmed server denial must block the protected operation. Offline use is
-   bounded by the already signed policy and lease expiry.
+   bounded by the already signed policy and lease expiry. Use dedicated test
+   licenses for any live changes, and record which scenarios were actually tested.
 
 ## 5. Publish your integrated software and issue customer licenses
 
@@ -94,5 +116,24 @@ settlement. Retain durable business results; after a crash during a callback,
 inspect its real outcome before resolving the job. Repeating a known completed
 job retries settlement without executing its business function again.
 
-For more methods, offline activation and floating seats, see the [runtime
-reference](https://www.licentivo.com/en/docs.html#sdk).
+For floating seats, acquire a seat online on each process start, keep the client
+alive, and close it on normal exit. A cached lease cannot authorize a new process
+or extend an expired seat. Only call Deactivate for an explicit device transfer.
+
+For an air-gapped device, export its offline request, process it on an online
+machine, and import the matching signed response back on the original machine.
+The policy must permit that offline mode. See [offline activation](https://www.licentivo.com/en/docs.html#offline).
+
+When using version or maintenance restrictions, configure the real application
+version; maintenance checks also require that version to be published in the
+console. Refresh online after an application upgrade. Without these restrictions,
+do not create a dummy software release just to activate.
+
+Pin trusted product public keys in the application; never accept unknown keys
+from an activation response. Keep device credentials and caches in a private
+per-user location. For web apps, protect real operations on a trusted backend.
+Management API keys belong only on your server for issuance and administration.
+
+For all nine language APIs and exact parameter types, see the [runtime
+reference](https://www.licentivo.com/en/docs.html#runtime). For common failures and
+safe retry behavior, see [troubleshooting](https://www.licentivo.com/en/docs.html#errors).

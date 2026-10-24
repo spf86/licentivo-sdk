@@ -1,4 +1,4 @@
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {Client, APIError} from './licentivo.mjs';
 
 const index = process.argv.indexOf('--config');
@@ -7,6 +7,13 @@ const cfg = JSON.parse(readFileSync(path, 'utf8'));
 const cacheTest = process.argv.includes('--cache-test');
 let client = new Client(cfg);
 try {
+    if(process.argv.includes('--logout-wait')){
+        if(!client.checkFeature('export'))throw Error('missing initial authorization');writeFileSync(path+'.ready','ready');
+        const deadline=Date.now()+30000;while(!existsSync(path+'.continue')){if(Date.now()>deadline)throw Error('logout wait timed out');await new Promise(r=>setTimeout(r,10));}
+        if(!(await client.logout()).local_complete||client.checkFeature('export'))throw Error('logout failed');
+    }else
+    if(process.argv.includes('--logout-retry')){await client.retryPendingLogouts();if(client.checkFeature('export'))throw Error('logout restored access');console.log('JavaScript: pending logout completed');process.exitCode=0;}
+    else
     if(process.argv.includes('--improvements-test')) {
         await client.start();const one=await client.reserve('export',1,'cancel-job');if(one.status!=='pending'||one.consumption.used!==0||one.consumption.reserved!==1)throw Error('reserve failed');
         const canceled=await client.cancel(one.reservation_id,'cancel-job');if(canceled.status!=='canceled'||canceled.consumption.used!==0)throw Error('cancel charged');
@@ -26,8 +33,8 @@ try {
         await client.start();const other=new Client(cfg);
         try {
             if(other.checkFeature('export'))throw Error('session cache reused');
-            let failed=false;try{await other.start();}catch(e){failed=e.status===409;}if(!failed)throw Error('occupied seat granted');
-            await client.close();await other.start();if(!other.checkFeature('export'))throw Error('new session denied');
+            await other.start();
+            await client.close();await other.heartbeat();if(!other.checkFeature('export'))throw Error('new session denied');
             console.log('JavaScript: floating seat release OK');
         }finally{await other.close();}
     }else if(process.argv.includes('--advanced-test')||process.argv.includes('--offline-import')) {

@@ -28,6 +28,18 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) if (!strcmp(argv[i], "--cache-test")) cache_test = 1;
     ln_client *client = ln_init_file(path);
     if (!client) { fprintf(stderr, "C: invalid configuration\n"); return 1; }
+    for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--logout-wait")){
+        char ready[4096],gate[4096];snprintf(ready,sizeof(ready),"%s.ready",path);snprintf(gate,sizeof(gate),"%s.continue",path);FILE*f=ln_check_feature(client,"export")?fopen(ready,"wb"):NULL;if(!f){ln_destroy(client);return 1;}fputs("ready",f);fclose(f);double deadline=clock_seconds()+30;
+        for(;;){f=fopen(gate,"rb");if(f){fclose(f);break;}if(clock_seconds()>deadline){ln_destroy(client);return 1;}
+#ifdef _WIN32
+            Sleep(10);
+#else
+            struct timespec pause={0,10000000L};nanosleep(&pause,NULL);
+#endif
+        }
+        int ok=ln_logout(client)&&!ln_check_feature(client,"export");ln_destroy(client);return ok?0:1;
+    }
+    for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--logout-retry")){int ok=ln_retry_pending_logouts(client)&&!ln_check_feature(client,"export");ln_destroy(client);if(ok)puts("C: pending logout completed");return ok?0:1;}
     for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--improvements-test")){int ok=improvements(client,path);if(!ok)fprintf(stderr,"C: %s\n",ln_last_error(client));ln_destroy(client);if(ok)puts("C: credential / reservation / typed status OK");return ok?0:1;}
     for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--startup-test")){double start=clock_seconds();int ok=ln_start(client)&&clock_seconds()-start<.3;start=clock_seconds();ok=ok&&ln_check_feature(client,"export")&&clock_seconds()-start<.3;ln_destroy(client);if(ok)puts("C: cached startup and local feature checks stay responsive");return ok?0:1;}
     int advanced=0,offline_export=0,offline_import=0,floating=0;
@@ -37,7 +49,7 @@ int main(int argc, char **argv) {
         int ok=1;if(!strcmp(argv[i],"--transfer-import")){char file[4096];snprintf(file,sizeof(file),"%s.request.json",path);char*req=read_text(file);snprintf(file,sizeof(file),"%s.response.json",path);char*res=read_text(file);ok=req&&res&&ln_import_offline(client,req,res);free(req);free(res);}else ok=ln_start(client);
         ok=ok&&ln_validate(client)&&ln_heartbeat(client)&&ln_check_feature(client,"export");if(!ok)fprintf(stderr,"C: %s\n",ln_last_error(client));ln_destroy(client);if(ok)puts("C: transferred device credential OK");return ok?0:1;
     }
-    if(floating){int ok=ln_start(client);ln_client*other=ln_init_file(path);ok=ok&&other&&!ln_check_feature(other,"export")&&!ln_start(other);ln_destroy(client);ok=ok&&ln_start(other)&&ln_check_feature(other,"export");ln_destroy(other);if(ok)puts("C: floating seat release OK");return ok?0:1;}
+    if(floating){int ok=ln_start(client);ln_client*other=ln_init_file(path);ok=ok&&other&&!ln_check_feature(other,"export")&&ln_start(other);ln_destroy(client);ok=ok&&ln_start(other)&&ln_check_feature(other,"export");ln_destroy(other);if(ok)puts("C: floating seat release OK");return ok?0:1;}
     if(advanced||offline_import){int ok=1;
         if(offline_import){char file[4096];snprintf(file,sizeof(file),"%s.request.json",path);char*req=read_text(file);snprintf(file,sizeof(file),"%s.response.json",path);char*res=read_text(file);ok=req&&res&&ln_import_offline(client,req,res);free(req);free(res);}else ok=ln_start(client);
         ok=ok&&ln_check_feature(client,"export");char*r=ok?ln_consume(client,"export",1,"business-job-1"):NULL;ok=ok&&used_is(r,1,0);ln_free_string(r);

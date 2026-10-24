@@ -25,6 +25,8 @@ func main() {
 	transferImport := flag.Bool("transfer-import", false, "import a temporary-code offline activation response")
 	improvements := flag.Bool("improvements-test", false, "credentials and quota reservations")
 	startup := flag.Bool("startup-test", false, "cached startup during slow network refresh")
+	logoutRetry := flag.Bool("logout-retry", false, "retry persisted device revocations without restoring access")
+	logoutWait := flag.Bool("logout-wait", false, "coordinate the shared-cache logout regression")
 	flag.Parse()
 	b, e := os.ReadFile(*path)
 	if e != nil {
@@ -41,6 +43,38 @@ func main() {
 	defer c.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	if *logoutWait {
+		if !c.CheckFeature("export") {
+			panic("missing initial authorization")
+		}
+		if err := os.WriteFile(*path+".ready", []byte("ready"), 0600); err != nil {
+			panic(err)
+		}
+		for {
+			if _, err := os.Stat(*path + ".continue"); err == nil {
+				break
+			}
+			if ctx.Err() != nil {
+				panic(ctx.Err())
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		result, err := c.Logout(ctx)
+		if err != nil || !result.LocalComplete || c.CheckFeature("export") {
+			panic("logout failed")
+		}
+		return
+	}
+	if *logoutRetry {
+		if err := c.RetryPendingLogouts(ctx); err != nil {
+			panic(err)
+		}
+		if c.CheckFeature("export") {
+			panic("logout restored access")
+		}
+		fmt.Println("Go: pending logout completed")
+		return
+	}
 
 	if *improvements {
 		if _, err := c.Start(ctx, nil); err != nil {
@@ -157,11 +191,11 @@ func main() {
 		if other.CheckFeature("export") {
 			panic("session cache reused")
 		}
-		if _, err = other.Start(ctx, nil); err == nil {
-			panic("occupied seat granted")
+		if _, err = other.Start(ctx, nil); err != nil {
+			panic(err)
 		}
 		c.Close()
-		if _, err = other.Start(ctx, nil); err != nil {
+		if _, err = other.Heartbeat(ctx); err != nil {
 			panic(err)
 		}
 		if !other.CheckFeature("export") {

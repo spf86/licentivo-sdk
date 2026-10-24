@@ -15,6 +15,14 @@ on:
         description: Publish Ruby gems only after all package checks
         type: boolean
         default: false
+      publish_npm:
+        description: Publish only npm from the existing verified release
+        type: boolean
+        default: false
+      publish_crates:
+        description: Publish only crates.io from the existing verified release
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,7 +47,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
-          PUBLISH: ${{ inputs.publish || inputs.publish_ruby || false }}
+          PUBLISH: ${{ inputs.publish || inputs.publish_ruby || inputs.publish_npm || inputs.publish_crates || false }}
         run: |
           if [ "$IS_TAG" = true ]; then test "$RELEASE_TAG" = "v$(cat VERSION)"; fi
           if [ "$PUBLISH" = true ]; then
@@ -140,6 +148,69 @@ jobs:
           for package in artifacts/licentivo-sdk-*.gem; do
             gem push "$package" --host https://rubygems.org
           done
+
+  npm-publish:
+    name: Publish Node SDK to npm
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && (inputs.publish || inputs.publish_npm))
+    needs: [python-package, linux, windows, windows-bindings]
+    runs-on: ubuntu-24.04
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        if: github.event_name == 'push'
+        with:
+          name: sdk-linux
+          path: dist
+      - name: Recover the immutable published artifact
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "v$(cat VERSION)" --repo "$GITHUB_REPOSITORY" --pattern 'licentivo-sdk-*.tgz' --dir dist
+      - name: Publish through the configured npm trusted publisher
+        run: npm publish dist/licentivo-sdk-*.tgz --access public --ignore-scripts --provenance
+
+  crates-publish:
+    name: Publish Rust SDK to crates.io
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && (inputs.publish || inputs.publish_crates))
+    needs: [python-package, linux, windows, windows-bindings]
+    runs-on: ubuntu-24.04
+    environment: crates
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        if: github.event_name == 'push'
+        with:
+          name: sdk-linux
+          path: dist
+      - name: Recover the immutable published artifact
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "v$(cat VERSION)" --repo "$GITHUB_REPOSITORY" --pattern 'licentivo-*.crate' --dir dist
+      - name: Install native build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y libcurl4-openssl-dev libssl-dev
+      - name: Extract the verified crate
+        run: mkdir crate && tar -xzf dist/licentivo-*.crate -C crate
+      - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9
+        id: auth
+      - name: Publish the Rust SDK
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --manifest-path "crate/licentivo-$(cat VERSION)/Cargo.toml" --locked
 
   linux:
     name: Build and install all nine clients on Linux

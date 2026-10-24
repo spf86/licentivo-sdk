@@ -1,53 +1,40 @@
-# Small SDK application
+# Local SDK sample applications
 
-The Windows desktop example has a license input, status, Export CSV, Pro export
-and Refresh license. Its main program is under 50 lines, excluding the SDK.
-The product ID and signing public keys are already in the downloaded source.
-There is no product configuration file to download or place beside your app.
+For integration into your own application, start with [QUICKSTART.md](QUICKSTART.md)
+or Console Quickstart's English integration prompt. This page describes the
+optional sample sources in this repository.
 
-## Run the desktop application
+## Configure a sample
 
-1. On the website's [Quick example page](https://www.licentivo.com/zh/docs.html#example),
-   download the Windows x64 application. Extract the ZIP and double-click
-   `LicentivoExample.exe`. Its .NET runtime is included; no development tools,
-   compiler, CMake or .NET installation are needed to try the application.
-2. Claim your personal three-day license on that page.
-   Each visitor has a separate license. Its three days begin at first activation;
-   reclaiming or downloading again does not renew it.
-3. Paste your trial key into the application and activate it.
-4. Export CSV saves a real report. Pro export is blocked by the SDK before any
-   report is written. This trial enables `export` and does not enable `pro`.
-5. Close and open the application again; activate with an empty input to restore
-   the SDK's saved device credential. This does not start a new trial.
+Create a product, a policy and a test license in the console. Copy your product ID
+and trusted key ID/public key pairs into the sample's BEGIN/END LICENTIVO PRODUCT
+section. Do not put signing private keys or management API keys in a client.
+Use the test license at the sample's interactive activation prompt.
 
-## Study or modify the optional source
+Enable the feature actually used by the sample, such as `export`, and leave a
+second feature such as `pro` disabled to verify denial. A trial license starts
+its configured duration at first successful activation; restart or device release
+does not renew it.
 
-Expand **Source (optional)** on the same page to download the desktop application's
-C# source, or select another language example. Source downloads do not claim or
-activate a trial. Extract the source, prepare its development tools and run the
-matching command below from the extracted directory.
+## Build and run from this checkout
 
-| Application source | Command | Development tools |
+| Sample | Command | Requirements |
 | --- | --- | --- |
-| Windows desktop (C#) | `dotnet run --project sdk/csharp/winforms` | .NET 8+ SDK, Windows |
-| Desktop (Java) | `javac -encoding UTF-8 -d build sdk/java/src/licentivo/*.java` then `java -cp build licentivo.DesktopDemo` | JDK 17+ |
-| Desktop (Python) | `python sdk/python/desktop.py` | Python 3.10+, Tk |
-| Go console | `go run ./sdk/go/app` | Go 1.26+ |
-| Node.js console | `node sdk/javascript/app.mjs` | Node.js 20+ |
+| Windows desktop (C#) | `dotnet run --project sdk/csharp/winforms` | .NET 8 SDK, Windows |
+| Java desktop | `javac -encoding UTF-8 -d build sdk/java/src/licentivo/*.java`, then `java -cp build licentivo.DesktopDemo` | JDK 17 |
+| Python desktop | `python sdk/python/desktop.py` | Python 3.10, Tk, cryptography |
+| Go console | `go run ./examples/go/app` | Go 1.26 |
+| Node.js console | `node sdk/javascript/app.mjs` | Node.js 20 |
 | C / C++ console | Build `licentivo_c_app` / `licentivo_cpp_app` with CMake | C11 / C++17, libcurl |
-| Rust console | `cargo run --manifest-path sdk/rust/Cargo.toml --example app` | Rust 1.77+, C11, libcurl |
-| Ruby console | `ruby sdk/ruby/build_native.rb` then `ruby sdk/ruby/examples/app.rb` | Ruby 3.1+, C11, libcurl |
+| Rust console | `cargo run --manifest-path sdk/rust/Cargo.toml --example app` | Rust 1.77, C11, libcurl |
+| Ruby console | `ruby sdk/ruby/build_native.rb`, then `ruby sdk/ruby/examples/app.rb` | Ruby 3.1, C11, libcurl |
 
-Only the chosen language's files are included. Python needs Tk (often
-preinstalled on Windows/macOS). Native Windows builds need matching libcurl
-development files; see the binding's README. Windows CMake defaults to a generator
-available on that computer; GCC/MinGW users should add `-G "MinGW Makefiles"` to
-the configure command and use a separate build directory from any Visual Studio
-build. Stop if configuration or compilation fails. The ready-to-run Windows
-application above is the recommended way to experience the SDK before compiling.
+Native Windows builds require a matching compiler architecture and libcurl.
+Use the binding's README for toolchain settings. For MinGW CMake builds, select
+an available generator, such as `-G "MinGW Makefiles"`, and a separate build
+directory from any MSVC build. Stop after a failed configure or compilation.
 
-To integrate your own software, use [QUICKSTART.md](QUICKSTART.md). Copy your own
-product ID and all key ID/public key pairs from Console > Products > Signing
-public keys into initialization. The SDK defaults to `https://www.licentivo.com`.
-Use `RunFeature` at the actual business entry point, and keep the SDK client alive
-until application shutdown. Normal exit retains a node-locked device's activation.
+Verify a real allowed action, a denied action and credential restoration after
+restart. Keep one SDK client alive for the application lifetime. Ordinary close
+keeps a node-locked binding; explicit logout/deactivation releases it. Floating
+close attempts to return the seat, with lease expiry as the recovery boundary.

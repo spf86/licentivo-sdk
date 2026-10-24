@@ -45,7 +45,32 @@ func versionContext(c lease.Claims, version string, sessions ...string) error {
 	return nil
 }
 func (c *Client) runtimeBody(activation string) map[string]any {
-	return map[string]any{"product_id": c.cfg.ProductID, "license_key": c.runtimeKey(), "device_id": c.cfg.DeviceID, "device_name": c.cfg.DeviceName, "activation_id": activation, "app_version": c.cfg.AppVersion, "session_id": c.sessionID, "device_profile": c.profile}
+	body := map[string]any{"product_id": c.cfg.ProductID, "license_key": c.runtimeKey(), "device_id": c.cfg.DeviceID, "device_name": c.cfg.DeviceName, "activation_id": activation, "app_version": c.cfg.AppVersion, "session_id": c.sessionID, "device_profile": c.profile}
+	if c.auth.LogoutTicket == nil {
+		body["request_logout_ticket"] = true
+	}
+	if c.cfg.IdentityToken != "" && c.auth.DeviceKey == "" {
+		body["identity_token"] = c.cfg.IdentityToken
+		body["launch_connection_id"] = c.cfg.LaunchConnectionID
+		body["environment"] = c.cfg.Environment
+	}
+	if c.cfg.LaunchConnectionID != "" {
+		body["launch_connection_id"] = c.cfg.LaunchConnectionID
+		body["environment"] = c.cfg.Environment
+	}
+	return body
+}
+
+func (c *Client) accountContext(claims lease.Claims) error {
+	connection, environment := "", ""
+	if x := claims.Capabilities; x != nil {
+		connection = x.LaunchConnectionID
+		environment = x.Environment
+	}
+	if connection != c.cfg.LaunchConnectionID || environment != c.cfg.Environment {
+		return errors.New("lease belongs to another Launch connection or environment")
+	}
+	return nil
 }
 
 // Start performs activation and starts the policy-controlled heartbeat loop.
@@ -126,7 +151,11 @@ func (c *Client) Stop(ctx context.Context) error {
 	claims, err := c.check()
 	c.mu.Unlock()
 	if err == nil && claims.Capabilities != nil && claims.Capabilities.LicenseModel == "floating" {
-		return c.Deactivate(ctx)
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.invalidate()
+		_, _, err = c.request(ctx, "deactivate", claims.ActivationID)
+		return err
 	}
 	return nil
 }
@@ -145,7 +174,7 @@ func (c *Client) Consume(ctx context.Context, feature string, quantity int64, op
 	out, _, err := c.requestExtra(ctx, "consume", claims.ActivationID, operationID, map[string]any{"feature": feature, "quantity": quantity})
 	if err != nil {
 		if deniedAuthorization(err) {
-			c.invalidate()
+			c.denyLocked()
 		}
 		c.publish(false, err)
 		return Consumption{}, err
@@ -186,6 +215,9 @@ func (c *Client) OfflineRequest(operation string) ([]byte, error) {
 func (c *Client) ImportOffline(request, responseJSON []byte) (lease.Claims, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.denied.Load() {
+		return lease.Claims{}, &APIError{Code: "LAUNCH_LOGIN_REQUIRED"}
+	}
 	var req struct {
 		RequestID  string `json:"request_id"`
 		ProductID  string `json:"product_id"`
@@ -216,6 +248,9 @@ func (c *Client) ImportOffline(request, responseJSON []byte) (lease.Claims, erro
 		return claims, errors.New("offline signature context mismatch")
 	}
 	if err = versionContext(claims, c.cfg.AppVersion); err != nil {
+		return claims, err
+	}
+	if err = c.accountContext(claims); err != nil {
 		return claims, err
 	}
 	if err = c.acceptCredential(res.Result); err != nil {

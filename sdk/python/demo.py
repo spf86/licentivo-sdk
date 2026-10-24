@@ -1,5 +1,6 @@
 import argparse
 import json
+import time
 from pathlib import Path
 from licentivo import Client, APIError
 
@@ -9,12 +10,21 @@ parser.add_argument('--policy-test',action='store_true')
 parser.add_argument('--expect-denied',action='store_true')
 parser.add_argument('--cache-test', action='store_true')
 parser.add_argument('--refresh-test', action='store_true')
-for option in ['improvements-test','startup-test','advanced-test','offline-export','offline-import','floating-test','transfer-test','transfer-import']: parser.add_argument('--'+option,action='store_true')
+for option in ['improvements-test','startup-test','advanced-test','offline-export','offline-import','floating-test','transfer-test','transfer-import','logout-retry','logout-wait']: parser.add_argument('--'+option,action='store_true')
 args = parser.parse_args()
 with open(args.config, encoding='utf-8') as f:
     cfg = json.load(f)
 
 with Client(cfg) as client:
+    if args.logout_wait:
+        assert client.check_feature('export');Path(args.config+'.ready').write_text('ready')
+        deadline=time.monotonic()+30
+        while not Path(args.config+'.continue').exists():
+            if time.monotonic()>deadline: raise RuntimeError('logout wait timed out')
+            time.sleep(.01)
+        assert client.logout()['local_complete'] and not client.check_feature('export');raise SystemExit(0)
+    if args.logout_retry:
+        client.retry_pending_logouts();assert not client.check_feature('export');print('Python: pending logout completed');raise SystemExit(0)
     if args.improvements_test:
         client.start();one=client.reserve('export',1,'cancel-job')
         assert one['status']=='pending' and one['consumption']['used']==0 and one['consumption']['reserved']==1
@@ -48,11 +58,8 @@ with Client(cfg) as client:
         client.start()
         with Client(cfg) as other:
             if other.check_feature('export'): raise RuntimeError('session cache reused')
-            failed=False
-            try: other.start()
-            except APIError as e: failed=e.status==409
-            if not failed: raise RuntimeError('occupied seat granted')
-            client.close();other.start()
+            other.start()
+            client.close();other.heartbeat()
             if not other.check_feature('export'): raise RuntimeError('new session denied')
         print('Python: floating seat release OK');raise SystemExit(0)
     if args.advanced_test or args.offline_import:

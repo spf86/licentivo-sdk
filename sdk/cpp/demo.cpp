@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <chrono>
+#include <thread>
 #include "../c/vendor/cJSON.h"
 static std::string readText(const std::string&path){std::ifstream f(path);if(!f)throw std::runtime_error("file missing");std::stringstream s;s<<f.rdbuf();return s.str();}
 static void usedIs(const std::string&s,double used,double over){cJSON*j=cJSON_Parse(s.c_str());const cJSON*u=cJSON_GetObjectItemCaseSensitive(j,"used"),*o=cJSON_GetObjectItemCaseSensitive(j,"overage");bool ok=cJSON_IsNumber(u)&&u->valuedouble==used&&cJSON_IsNumber(o)&&o->valuedouble==over;cJSON_Delete(j);if(!ok)throw std::runtime_error("invalid consumption receipt");}
@@ -13,6 +14,12 @@ int main(int argc, char **argv) {
         for (int i = 1; i < argc; i++) if (std::string(argv[i]) == "--cache-test") cacheTest = true;
         {
             licentivo::Client client(path);
+            for(int i=1;i<argc;i++)if(std::string(argv[i])=="--logout-wait"){
+                if(!client.CheckFeature("export"))throw std::runtime_error("missing initial authorization");{std::ofstream ready(path+".ready");ready<<"ready";if(!ready)throw std::runtime_error("write failed");}
+                auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);while(!std::ifstream(path+".continue")){if(std::chrono::steady_clock::now()>deadline)throw std::runtime_error("logout wait timed out");std::this_thread::sleep_for(std::chrono::milliseconds(10));}
+                client.Logout();if(client.CheckFeature("export"))throw std::runtime_error("logout failed");return 0;
+            }
+            for(int i=1;i<argc;i++)if(std::string(argv[i])=="--logout-retry"){client.RetryPendingLogouts();if(client.CheckFeature("export"))throw std::runtime_error("logout restored access");std::cout<<"C++: pending logout completed"<<std::endl;return 0;}
             for(int i=1;i<argc;i++)if(std::string(argv[i])=="--improvements-test"){
                 client.Start();auto read=[](const std::string&v){return cJSON_Parse(v.c_str());};auto check=[](const cJSON*j,const char*status,double used){const cJSON*s=cJSON_GetObjectItemCaseSensitive(j,"status"),*c=cJSON_GetObjectItemCaseSensitive(j,"consumption"),*u=cJSON_GetObjectItemCaseSensitive(c,"used");if(!cJSON_IsString(s)||std::string(s->valuestring)!=status||!cJSON_IsNumber(u)||u->valuedouble!=used)throw std::runtime_error("invalid reservation receipt");};
                 cJSON*one=read(client.Reserve("export",1,"cancel-job"));check(one,"pending",0);std::string id=cJSON_GetObjectItemCaseSensitive(one,"reservation_id")->valuestring;cJSON_Delete(one);one=read(client.Cancel(id,"cancel-job"));check(one,"canceled",0);cJSON_Delete(one);
@@ -27,7 +34,7 @@ int main(int argc, char **argv) {
                 if(std::string(argv[i])=="--transfer-import")client.ImportOffline(readText(path+".request.json"),readText(path+".response.json"));else client.Start();
                 client.Validate();client.Heartbeat();if(!client.CheckFeature("export"))throw std::runtime_error("feature denied");std::cout<<"C++: transferred device credential OK"<<std::endl;return 0;
             }
-            if(floating){client.Start();licentivo::Client other(path);if(other.CheckFeature("export"))throw std::runtime_error("session cache reused");bool failed=false;try{other.Start();}catch(...){failed=true;}if(!failed)throw std::runtime_error("occupied seat granted");client.Deactivate();other.Start();if(!other.CheckFeature("export"))throw std::runtime_error("new session denied");std::cout<<"C++: floating seat release OK"<<std::endl;return 0;}
+            if(floating){client.Start();licentivo::Client other(path);if(other.CheckFeature("export"))throw std::runtime_error("session cache reused");other.Start();client.StopHeartbeat();other.Heartbeat();if(!other.CheckFeature("export"))throw std::runtime_error("new session denied");std::cout<<"C++: floating seat release OK"<<std::endl;return 0;}
             if(advanced||offlineImport){
                 if(offlineImport)client.ImportOffline(readText(path+".request.json"),readText(path+".response.json"));else client.Start();
                 if(!client.CheckFeature("export"))throw std::runtime_error("feature denied");usedIs(client.Consume("export",1,"business-job-1"),1,0);usedIs(client.Consume("export",1,"business-job-1"),1,0);usedIs(client.Consume("export",3,"business-job-2"),4,1);

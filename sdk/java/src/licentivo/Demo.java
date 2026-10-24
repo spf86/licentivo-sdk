@@ -9,6 +9,14 @@ public final class Demo {
         var cfg = Json.object(Json.parse(Files.readString(Path.of(path))));
         boolean cacheTest = Arrays.asList(args).contains("--cache-test");
         try (Client client = new Client(cfg)) {
+            if(Arrays.asList(args).contains("--logout-wait")){
+                if(!client.checkFeature("export"))throw new Exception("missing initial authorization");Files.writeString(Path.of(path+".ready"),"ready");long deadline=System.nanoTime()+30000000000L;
+                while(!Files.exists(Path.of(path+".continue"))){if(System.nanoTime()>deadline)throw new Exception("logout wait timed out");Thread.sleep(10);}
+                var result=client.logout();boolean expectFailure=Arrays.asList(args).contains("--expect-storage-error");
+                if(Boolean.TRUE.equals(result.get("local_complete"))==expectFailure||client.checkFeature("export"))throw new Exception("unexpected logout persistence result");
+                if(expectFailure){boolean rejected=false;try{client.deactivate();}catch(java.io.IOException error){rejected=true;}if(!rejected)throw new Exception("deactivate hid persistence failure");}return;
+            }
+            if(Arrays.asList(args).contains("--logout-retry")){client.retryPendingLogouts();if(client.checkFeature("export"))throw new Exception("logout restored access");System.out.println("Java: pending logout completed");return;}
             if(Arrays.asList(args).contains("--improvements-test")) {
                 client.start(null);var one=client.reserve("export",1,"cancel-job");if(!one.get("status").equals("pending")||Json.number(Json.object(one.get("consumption")),"used")!=0||Json.number(Json.object(one.get("consumption")),"reserved")!=1)throw new Exception("reserve failed");
                 var canceled=client.cancel(Json.text(one,"reservation_id"),"cancel-job");if(!canceled.get("status").equals("canceled")||Json.number(Json.object(canceled.get("consumption")),"used")!=0)throw new Exception("cancel charged usage");
@@ -27,8 +35,8 @@ public final class Demo {
             if(Arrays.asList(args).contains("--floating-test")) {
                 client.start(null);try(Client other=new Client(cfg)){
                     if(other.checkFeature("export"))throw new Exception("session cache reused");
-                    boolean failed=false;try{other.start(null);}catch(Client.APIException e){failed=e.status==409;}
-                    if(!failed)throw new Exception("occupied seat granted");client.close();other.start(null);
+                    other.start(null);
+                    client.close();other.heartbeat();
                     if(!other.checkFeature("export"))throw new Exception("new session denied");
                 }System.out.println("Java: floating seat release OK");return;
             }

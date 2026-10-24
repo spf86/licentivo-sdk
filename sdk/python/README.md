@@ -11,7 +11,7 @@ Requirements: Python 3.10+; Tk for the optional desktop application.
 Install the public SDK package in your existing application project:
 
 ```sh
-python -m pip install "licentivo-sdk==0.11.1"
+python -m pip install "licentivo-sdk==0.11.2"
 ```
 
 No SDK source download, extraction or local path dependency is required.

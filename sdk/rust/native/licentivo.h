@@ -53,6 +53,10 @@ int ln_heartbeat(ln_client *client);
 int ln_refresh_online(ln_client *client);
 int ln_check_feature(ln_client *client,const char *feature);
 int ln_deactivate(ln_client *client);
+/* Logout denies local use immediately. Network failure leaves an unlink-only retry. */
+int ln_logout(ln_client *client);
+int ln_retry_pending_logouts(ln_client *client);
+int ln_logout_pending(ln_client *client);
 int ln_start_heartbeat(ln_client *client);
 void ln_stop_heartbeat(ln_client *client);
 void ln_destroy(ln_client *client);

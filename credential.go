@@ -13,19 +13,25 @@ import (
 // Store the device credential separately from the lease so expiry, online-only policies,
 // and floating-session shutdown cannot discard the credential used after a device transfer.
 type credentialState struct {
-	Version    int    `json:"version"`
-	SourceHash string `json:"source_hash"`
-	ProductID  string `json:"product_id"`
-	Origin     string `json:"origin"`
-	DeviceID   string `json:"device_id"`
-	DeviceKey  string `json:"device_key"`
-	RequestID  string `json:"request_id"`
-	SessionID  string `json:"session_id"`
+	LogoutTicket *LogoutTicket `json:"logout_ticket,omitempty"`
+	Version      int           `json:"version"`
+	SourceHash   string        `json:"source_hash"`
+	ProductID    string        `json:"product_id"`
+	Origin       string        `json:"origin"`
+	DeviceID     string        `json:"device_id"`
+	DeviceKey    string        `json:"device_key"`
+	RequestID    string        `json:"request_id"`
+	SessionID    string        `json:"session_id"`
 }
 
-func temporaryKey(key string) bool  { return strings.HasPrefix(key, "lv_tmp_") }
-func (c *Client) transferred() bool { return c.cfg.LicenseKey != "" || c.auth.Version == 1 }
+func temporaryKey(key string) bool { return strings.HasPrefix(key, "lv_tmp_") }
+func (c *Client) transferred() bool {
+	return c.cfg.LicenseKey != "" || c.cfg.IdentityToken != "" || c.auth.Version == 1
+}
 func (c *Client) cacheLicenseHash() string {
+	if c.cfg.IdentityToken != "" {
+		return licenseHash(c.cfg.IdentityToken)
+	}
 	if c.cfg.LicenseKey == "" {
 		return c.auth.SourceHash
 	}
@@ -46,7 +52,7 @@ func (c *Client) loadCredential() {
 	}
 	b, err := os.ReadFile(c.cfg.CachePath + ".credential.json")
 	var state credentialState
-	if err != nil || len(b) > 16384 || json.Unmarshal(b, &state) != nil || state.Version != 1 || state.Origin != c.cfg.BaseURL || !lease.ValidDevice(state.SourceHash) || c.cfg.LicenseKey != "" && state.SourceHash != licenseHash(c.cfg.LicenseKey) || state.ProductID != c.cfg.ProductID || state.DeviceID != c.cfg.DeviceID {
+	if err != nil || len(b) > 16384 || json.Unmarshal(b, &state) != nil || state.Version != 1 || state.Origin != c.cfg.BaseURL || !lease.ValidDevice(state.SourceHash) || c.cfg.LicenseKey != "" && state.SourceHash != licenseHash(c.cfg.LicenseKey) || c.cfg.IdentityToken != "" && state.SourceHash != licenseHash(c.cfg.IdentityToken) || state.ProductID != c.cfg.ProductID || state.DeviceID != c.cfg.DeviceID {
 		return
 	}
 	if state.DeviceKey != "" && (len(state.DeviceKey) != 50 || !strings.HasPrefix(state.DeviceKey, "lv_dev_")) {
@@ -71,7 +77,7 @@ func (c *Client) prepareCredential() error {
 		return errors.New("cache_path is required to retain the machine credential")
 	}
 	if c.auth.Version == 0 {
-		c.auth = credentialState{Version: 1, SourceHash: licenseHash(c.cfg.LicenseKey), Origin: c.cfg.BaseURL, ProductID: c.cfg.ProductID, DeviceID: c.cfg.DeviceID, RequestID: requestUUID(), SessionID: c.sessionID}
+		c.auth = credentialState{Version: 1, SourceHash: c.cacheLicenseHash(), Origin: c.cfg.BaseURL, ProductID: c.cfg.ProductID, DeviceID: c.cfg.DeviceID, RequestID: requestUUID(), SessionID: c.sessionID}
 		c.authDirty = true
 	}
 	if c.authDirty {
@@ -109,11 +115,34 @@ func (c *Client) saveCredential() error {
 	return nil
 }
 func (c *Client) acceptCredential(out response) error {
+	// A renewed assertion for the old Launch login cannot undo explicit logout.
+	// A real new login advances the server's binding generation.
+	if c.cfg.LaunchConnectionID != "" && c.logoutBindings[logoutBinding(out.LogoutTicket)] {
+		c.auth.LogoutTicket = out.LogoutTicket
+		_ = c.denyLocked()
+		return &APIError{Status: 403, Code: "LAUNCH_LOGIN_REQUIRED"}
+	}
+	if c.logoutJournal.SignedOut {
+		c.logoutJournal.SignedOut = false
+		if err := c.saveLogoutJournal(); err != nil {
+			return err
+		}
+	}
+	if out.LogoutTicket != nil {
+		if err := c.prepareCredential(); err != nil {
+			return err
+		}
+		c.auth.LogoutTicket = out.LogoutTicket
+		c.authDirty = true
+		if err := c.saveCredential(); err != nil {
+			return err
+		}
+	}
 	if !c.transferred() || c.auth.DeviceKey != "" {
 		return nil
 	}
 	if len(out.DeviceKey) != 50 || !strings.HasPrefix(out.DeviceKey, "lv_dev_") {
-		if !temporaryKey(c.cfg.LicenseKey) {
+		if !temporaryKey(c.cfg.LicenseKey) && c.cfg.IdentityToken == "" {
 			return nil
 		}
 		return errors.New("server omitted device credential")

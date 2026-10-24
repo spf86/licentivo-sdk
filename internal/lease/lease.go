@@ -46,12 +46,15 @@ type Claims struct {
 // Optional signed fields keep legacy device-bound licenses compatible.
 // The server signs extended entitlements, including session deadlines and maintenance periods.
 type Capabilities struct {
-	SessionID         string `json:"session_id,omitempty"`
-	LicenseModel      string `json:"license_model"`
-	SessionExpiresAt  int64  `json:"session_expires_at,omitempty"`
-	AppVersion        string `json:"app_version,omitempty"`
-	VersionReleasedAt int64  `json:"version_released_at,omitempty"`
-	MaintenanceUntil  int64  `json:"maintenance_until,omitempty"`
+	LaunchConnectionID string `json:"launch_connection_id,omitempty"`
+	Environment        string `json:"environment,omitempty"`
+	BindingVersion     int    `json:"binding_version,omitempty"`
+	SessionID          string `json:"session_id,omitempty"`
+	LicenseModel       string `json:"license_model"`
+	SessionExpiresAt   int64  `json:"session_expires_at,omitempty"`
+	AppVersion         string `json:"app_version,omitempty"`
+	VersionReleasedAt  int64  `json:"version_released_at,omitempty"`
+	MaintenanceUntil   int64  `json:"maintenance_until,omitempty"`
 }
 
 // Runtime policy is signed with the device binding. Legacy leases remain limited to 24 hours.
@@ -145,6 +148,11 @@ func Verify(e Envelope, keys map[string]ed25519.PublicKey, product, device strin
 		return c, errors.New("invalid offline request context")
 	}
 	if x := c.Capabilities; x != nil {
+		if x.LaunchConnectionID != "" || x.Environment != "" || x.BindingVersion != 0 {
+			if !validID(x.LaunchConnectionID) || x.Environment != "live" && x.Environment != "sandbox" || x.BindingVersion < 1 || x.LicenseModel != "node_locked" || !validID(x.SessionID) || x.SessionExpiresAt <= c.IssuedAt || c.ExpiresAt > x.SessionExpiresAt || c.RuntimePolicy == nil || c.RuntimePolicy.HeartbeatSeconds < 600 || c.OfflineMode() == "permanent" || c.RuntimePolicy.OfflineSeconds > 86400 {
+				return c, errors.New("invalid Launch account session")
+			}
+		}
 		if x.LicenseModel != "node_locked" && x.LicenseModel != "floating" {
 			return c, errors.New("invalid license model")
 		}

@@ -3,27 +3,27 @@
 Integrate license activation, signed feature permissions, device binding and
 usage limits into your own Go, Java, C, C++, C#, Python, Node.js, Rust or Ruby app.
 
-Start with [QUICKSTART.md](../QUICKSTART.md). To try a small application already
-connected to the SDK, use [EXAMPLE.md](../EXAMPLE.md); the Windows desktop entry is
-under 50 lines and demonstrates an allowed CSV export and a denied Pro export.
-The public example issues a separate three-day license to each visitor, starting
-at that license's first activation. Reclaiming/downloading does not extend it.
+Start with [QUICKSTART.md](../QUICKSTART.md). Console Quickstart generates an
+English integration prompt with your product ID, trusted public keys and chosen
+language. Create a test license, integrate one real business operation and
+verify denial and restart recovery. Optional local sample applications are
+described in [EXAMPLE.md](../EXAMPLE.md).
 
 ## Install in your application
 
 Use the public package manager for your language. Run the command in your own
 application project; no source download, extraction or local path override is
-needed. All commands below select SDK 0.11.1.
+needed. All commands below select SDK 0.11.2.
 
 | Language | Install |
 | --- | --- |
-| Go | `go get github.com/spf86/licentivo-sdk@v0.11.1` |
-| Python | `python -m pip install "licentivo-sdk==0.11.1"` |
-| Node.js | `npm install @licentivo/sdk@0.11.1` |
-| C# | `dotnet add package Licentivo.SDK --version 0.11.1` |
-| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.1'` with Maven Central enabled; [Maven configuration](java/README.md) |
-| Rust | `cargo add licentivo@=0.11.1` |
-| Ruby | `gem install licentivo-sdk --version 0.11.1` |
+| Go | `go get github.com/spf86/licentivo-sdk@v0.11.2` |
+| Python | `python -m pip install "licentivo-sdk==0.11.2"` |
+| Node.js | `npm install @licentivo/sdk@0.11.2` |
+| C# | `dotnet add package Licentivo.SDK --version 0.11.2` |
+| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.2'` with Maven Central enabled; [Maven configuration](java/README.md) |
+| Rust | `cargo add licentivo@=0.11.2` |
+| Ruby | `gem install licentivo-sdk --version 0.11.2` |
 | C / C++ | Use the [automatic native package installer](https://www.licentivo.com/en/docs.html#sdk), then link `Licentivo::C` / `Licentivo::CPP`. |
 
 Package installation installs the common library. Product ID and trusted public
@@ -75,7 +75,7 @@ Go 1.26+, Java 17+, .NET 8+, Python 3.10+, Node.js 20+, Rust 1.77+ and Ruby 3.1+
 are supported. C/C++ use C11/C++17, CMake and libcurl development files. Rust and
 Ruby share that native core; on Windows use GNU/MinGW and matching libcurl, with
 LICENTIVO_CURL_ROOT set for native builds. Python desktop examples require Tk.
-SDK version: 0.11.1. Use the pinned package manager commands above.
+SDK version: 0.11.2. Use the pinned package manager commands above.
 
 Online errors expose a code and, when available, request ID/retry information.
 Present the reason to the user. Local status does not guarantee a later network
@@ -88,3 +88,25 @@ Run scripts/test-sdks.ps1 or scripts/test-sdks.sh for the supported local toolch
 Platform build configuration alone is not evidence of execution on that platform.
 
 MIT licensed; bundled dependencies retain their licenses, listed in NOTICE.
+
+
+## Launch account mode
+
+Use the in-memory configuration fields `launch_connection_id`, `environment` and
+`identity_token` with an empty `license_key`. Licentivo verifies the Launch login
+and its own entitlement ledger, then issues a restricted credential and signed
+session. Explicit logout immediately denies local work, clears runtime authority
+and persists unlink-only tickets for retry. `Deactivate` also performs explicit
+logout. Ordinary close retains a node-locked binding; floating close attempts to
+return its seat. Returned seats or released ordinary bindings return workspace
+device capacity. Floating expiry also returns capacity.
+
+Logout records are scoped to the credential source and binding generation, with
+an independent copy in the user's cache directory. Shared credential/lease files
+remain in place so an older instance cannot delete a newer binding; the logout
+records prevent the old binding from restoring access. If both record locations
+are unwritable, logout reports `local_complete / LocalComplete=false` (or an
+error in native wrappers), denies this instance immediately and still attempts
+remote revocation. Applications must handle that persistence failure.
+
+Account and session contracts: [Launch account licensing](https://www.licentivo.com/en/openapi.json).

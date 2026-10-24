@@ -48,6 +48,9 @@ func (c *Client) OnStatusChanged(callback func(Status)) {
 	}
 }
 func (c *Client) localClaims() (lease.Claims, error) {
+	if c.denied.Load() {
+		return lease.Claims{}, errors.New("signed out; fresh login required")
+	}
 	v := c.view.Load()
 	if v == nil {
 		return lease.Claims{}, errors.New("no valid lease")
@@ -59,9 +62,15 @@ func (c *Client) localClaims() (lease.Claims, error) {
 	if err == nil {
 		err = versionContext(claims, c.cfg.AppVersion, c.sessionID)
 	}
+	if err == nil {
+		err = c.accountContext(claims)
+	}
 	return claims, err
 }
 func (c *Client) Status() Status {
+	if c.denied.Load() {
+		return Status{State: "released", Code: "LAUNCH_LOGIN_REQUIRED"}
+	}
 	v := c.view.Load()
 	s := Status{State: "verification_required"}
 	if v == nil {
@@ -131,6 +140,9 @@ func waitHeartbeat(ctx context.Context, delay time.Duration) bool {
 }
 
 func deniedAuthorization(err error) bool {
+	if explicitRevocation(err) {
+		return true
+	}
 	var e *APIError
 	if !errors.As(err, &e) {
 		return false

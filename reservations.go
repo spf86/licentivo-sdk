@@ -38,7 +38,7 @@ func (c *Client) reservation(ctx context.Context, op, id string, extra map[strin
 	out, _, err := c.requestExtra(ctx, "consume/"+op, claims.ActivationID, id, extra)
 	if err != nil {
 		if deniedAuthorization(err) {
-			c.invalidate()
+			c.denyLocked()
 		}
 		c.publish(false, err)
 		return Reservation{}, err
