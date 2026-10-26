@@ -1,0 +1,93 @@
+{
+  "version": "0.11.3",
+  "checked_at": "2026-10-26T09:27:25.000875+00:00",
+  "website_links_verified": 5,
+  "registry_count": 6,
+  "all_six_completed": false,
+  "source_commit": "626b24c9cc38a0daafb9a6c895f076c8426384f9",
+  "release": "https://github.com/spf86/licentivo-sdk/releases/tag/v0.11.3",
+  "registries": {
+    "crates": {
+      "status": "published_and_link_verified",
+      "observed_metadata": {
+        "project": "licentivo",
+        "registry": "crates",
+        "version": "0.11.3",
+        "homepage": "https://www.licentivo.com/",
+        "documentation": "https://www.licentivo.com/en/docs.html#sdk",
+        "repository": "https://github.com/spf86/licentivo-sdk"
+      }
+    },
+    "maven": {
+      "status": "awaiting_publication",
+      "observed_metadata": {
+        "project": "licentivo",
+        "registry": "maven",
+        "version": "0.11.2",
+        "homepage": "https://github.com/spf86/licentivo-sdk"
+      }
+    },
+    "npm": {
+      "status": "published_and_link_verified",
+      "observed_metadata": {
+        "project": "licentivo",
+        "registry": "npm",
+        "version": "0.11.3",
+        "homepage": "https://www.licentivo.com/",
+        "repository": {
+          "url": "git+https://github.com/spf86/licentivo-sdk.git",
+          "type": "git",
+          "directory": "sdk/javascript"
+        }
+      }
+    },
+    "nuget": {
+      "status": "published_and_link_verified",
+      "observed_metadata": {
+        "project": "licentivo",
+        "registry": "nuget",
+        "version": "0.11.3",
+        "urls": {
+          "readme": "README.md",
+          "projectUrl": "https://www.licentivo.com/"
+        }
+      }
+    },
+    "pypi": {
+      "status": "published_and_link_verified",
+      "observed_metadata": {
+        "project": "licentivo",
+        "registry": "pypi",
+        "version": "0.11.3",
+        "urls": {
+          "Documentation": "https://www.licentivo.com/en/docs.html#sdk",
+          "Homepage": "https://www.licentivo.com/",
+          "Issues": "https://github.com/spf86/licentivo-sdk/issues",
+          "Source": "https://github.com/spf86/licentivo-sdk"
+        }
+      }
+    },
+    "rubygems": {
+      "status": "published_and_link_verified",
+      "observed_metadata": {
+        "project": "licentivo",
+        "registry": "rubygems",
+        "version": "0.11.3",
+        "homepage": "https://www.licentivo.com/",
+        "documentation": "https://www.licentivo.com/en/docs.html#sdk",
+        "metadata": {
+          "homepage_uri": "https://www.licentivo.com/",
+          "source_code_uri": "https://github.com/spf86/licentivo-sdk",
+          "allowed_push_host": "https://rubygems.org",
+          "documentation_uri": "https://www.licentivo.com/en/docs.html#sdk"
+        }
+      }
+    }
+  },
+  "maven_upload": {
+    "status": "signed_bundle_ready",
+    "signatures_verified": 4,
+    "expected_project_url": "https://www.licentivo.com/",
+    "expected_version": "0.11.3"
+  }
+}

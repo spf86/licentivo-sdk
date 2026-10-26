@@ -1,5 +1,7 @@
 # Licentivo client SDKs
 
+Maven Central 0.11.3 is awaiting publication. Until then, use Maven version 0.11.2 or the Java JAR from the [GitHub Release](https://github.com/spf86/licentivo-sdk/releases/tag/v0.11.3). [Publication status](docs/releases/0.11.3-links.json).
+
 [Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs.html#sdk) · [Source code](https://github.com/spf86/licentivo-sdk)
 
 Integrate license activation, signed feature permissions, device binding and
