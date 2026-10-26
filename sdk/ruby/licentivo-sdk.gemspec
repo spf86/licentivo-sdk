@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 Gem::Specification.new do |spec|
   spec.name = 'licentivo-sdk'
-  spec.version = '0.11.2'
+  spec.version = '0.11.3'
   spec.authors = ['Licentivo']
   spec.summary = 'Application licensing, verified grants and durable metered workflows'
   spec.description = 'Licentivo adds license activation, machine-scoped device credentials, pinned signature verification, feature and expiry checks, policy heartbeats, permitted offline grants, floating seats and metered reserve/commit/cancel workflows to Ruby applications. Applications provide their activation UI, business block and durable results; the SDK manages the licensing protocol. See the documentation for pinned installation commands and working examples.'
@@ -16,6 +16,7 @@ Gem::Specification.new do |spec|
   else
     spec.extensions = ['ext/licentivo_native/extconf.rb']
   end
+  spec.metadata['homepage_uri'] = 'https://www.licentivo.com/'
   spec.metadata['source_code_uri'] = 'https://github.com/spf86/licentivo-sdk'
   spec.metadata['documentation_uri'] = 'https://www.licentivo.com/en/docs.html#sdk'
   spec.metadata['allowed_push_host'] = 'https://rubygems.org'

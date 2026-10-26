@@ -1,5 +1,7 @@
 # Licentivo Java SDK
 
+[Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs.html#sdk) · [Source code](https://github.com/spf86/licentivo-sdk)
+
 Add license activation and real feature permissions to your own application.
 The SDK handles requests, machine identity, pinned signatures, private credentials,
 cache and policy heartbeats. Your app supplies activation input and business code.
@@ -11,7 +13,7 @@ Requirements: JDK 17+; JDK HTTP and Ed25519 APIs.
 Install the public SDK package in your existing application project:
 
 ```gradle
-implementation 'com.licentivo:licentivo-sdk:0.11.2'
+implementation 'com.licentivo:licentivo-sdk:0.11.3'
 ```
 
 Add the line above to your Gradle dependencies and enable `mavenCentral()`
@@ -21,7 +23,7 @@ in your repositories. For Maven, add this dependency to `pom.xml`:
 <dependency>
   <groupId>com.licentivo</groupId>
   <artifactId>licentivo-sdk</artifactId>
-  <version>0.11.2</version>
+  <version>0.11.3</version>
 </dependency>
 ```
 

@@ -1,11 +1,13 @@
 [package]
 name = "licentivo"
-version = "0.11.2"
+version = "0.11.3"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"
 description = "Licentivo application licensing: activation, verified grants and metered operations"
 repository = "https://github.com/spf86/licentivo-sdk"
+documentation = "https://www.licentivo.com/en/docs.html#sdk"
+homepage = "https://www.licentivo.com/"
 readme = "README.md"
 include = ["src/**", "examples/**", "build.rs", "Cargo.toml", "README.md", "LICENSE", "NOTICE", "native/**"]
 

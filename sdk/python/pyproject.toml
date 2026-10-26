@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "licentivo-sdk"
-version = "0.11.2"
+version = "0.11.3"
 description = "Licentivo software licensing client"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,8 +12,9 @@ license = {file = "LICENSE"}
 dependencies = ["cryptography>=44.0.1,<49"]
 
 [project.urls]
-Homepage = "https://github.com/spf86/licentivo-sdk"
-Documentation = "https://www.licentivo.com/en/docs.html"
+Homepage = "https://www.licentivo.com/"
+Documentation = "https://www.licentivo.com/en/docs.html#sdk"
+Source = "https://github.com/spf86/licentivo-sdk"
 Issues = "https://github.com/spf86/licentivo-sdk/issues"
 
 [tool.setuptools]

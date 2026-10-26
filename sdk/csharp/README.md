@@ -1,5 +1,7 @@
 # Licentivo .NET SDK
 
+[Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs.html#sdk) · [Source code](https://github.com/spf86/licentivo-sdk)
+
 Add license activation and real feature permissions to your own application.
 The SDK handles requests, machine identity, pinned signatures, private credentials,
 cache and policy heartbeats. Your app supplies activation input and business code.
@@ -11,7 +13,7 @@ Requirements: .NET 8+; the project declares BouncyCastle.Cryptography for signat
 Install the public SDK package in your existing application project:
 
 ```sh
-dotnet add package Licentivo.SDK --version 0.11.2
+dotnet add package Licentivo.SDK --version 0.11.3
 ```
 
 No SDK source download, extraction or local path dependency is required.

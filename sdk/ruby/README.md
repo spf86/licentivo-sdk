@@ -1,5 +1,7 @@
 # Licentivo Ruby SDK
 
+[Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs.html#sdk) · [Source code](https://github.com/spf86/licentivo-sdk)
+
 Add license activation and real feature permissions to your own application.
 The SDK handles requests, machine identity, pinned signatures, private credentials,
 cache and policy heartbeats. Your app supplies activation input and business code.
@@ -11,10 +13,10 @@ Requirements: Ruby 3.1+, Fiddle, C11 compiler and libcurl development files. Sou
 Install the public SDK package in your existing application project:
 
 ```sh
-gem install licentivo-sdk --version 0.11.2
+gem install licentivo-sdk --version 0.11.3
 ```
 
-For Bundler, use `gem "licentivo-sdk", "= 0.11.2"` in your Gemfile.
+For Bundler, use `gem "licentivo-sdk", "= 0.11.3"` in your Gemfile.
 
 No SDK source download, extraction or local path dependency is required.
 

@@ -1,6 +1,6 @@
 # Supported runtimes and verification
 
-Version 0.11.2 uses one signed-lease protocol across nine client languages.
+Version 0.11.3 uses one signed-lease protocol across nine client languages.
 
 | Runtime | Minimum | Execution evidence |
 | --- | --- | --- |
