@@ -128,6 +128,7 @@ func isolatedLogoutCache(t *testing.T) string {
 	root := t.TempDir()
 	t.Setenv("LOCALAPPDATA", root)
 	t.Setenv("XDG_CACHE_HOME", root)
+	t.Setenv("HOME", root)
 	return filepath.Join(t.TempDir(), "lease.json")
 }
 func TestLogoutFallbackSurvivesPrimaryFailureAndOfflineRestart(t *testing.T) {
@@ -175,6 +176,8 @@ func TestLogoutReportsTotalPersistenceFailureAndStillRevokes(t *testing.T) {
 	}
 	t.Setenv("LOCALAPPDATA", blocked)
 	t.Setenv("XDG_CACHE_HOME", blocked)
+	// macOS derives UserCacheDir from HOME/Library/Caches.
+	t.Setenv("HOME", blocked)
 	if err := os.Mkdir(path+".logout.json", 0700); err != nil {
 		t.Fatal(err)
 	}
