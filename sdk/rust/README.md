@@ -13,7 +13,7 @@ Requirements: Rust 1.77+, C11 compiler and libcurl development files (OpenSSL de
 Install the public SDK package in your existing application project:
 
 ```sh
-cargo add licentivo@=0.11.4
+cargo add licentivo@=0.11.5
 ```
 
 No SDK source download, extraction or local path dependency is required.

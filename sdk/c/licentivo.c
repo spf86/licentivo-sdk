@@ -48,7 +48,17 @@ static int state_windows_stat(const char*path,struct stat*info){
  if(!ok){errno=error==ERROR_FILE_NOT_FOUND||error==ERROR_PATH_NOT_FOUND?ENOENT:EACCES;return -1;}
  memset(info,0,sizeof(*info));info->st_size=data.nFileSizeHigh||data.nFileSizeLow>2147483647?2147483647:(long)data.nFileSizeLow;return 0;
 }
-static int state_windows_move(const char*from,const char*to){wchar_t*a=state_windows_path(from),*b=state_windows_path(to);int ok=a&&b&&MoveFileExW(a,b,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH);free(a);free(b);return ok;}
+static int state_windows_move(const char*from,const char*to){
+ wchar_t*a=state_windows_path(from),*b=state_windows_path(to);int ok=0;
+ if(a&&b)for(unsigned attempt=0;attempt<8;attempt++){
+  if(MoveFileExW(a,b,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)){ok=1;break;}
+  DWORD error=GetLastError();
+  /* Readers and file scanners can briefly hold either journal file open. */
+  if((error!=ERROR_SHARING_VIOLATION&&error!=ERROR_LOCK_VIOLATION&&error!=ERROR_ACCESS_DENIED)||attempt==7)break;
+  Sleep(10*(attempt+1));
+ }
+ free(a);free(b);return ok;
+}
 #define fopen(path,mode) state_windows_open(path,mode)
 #define remove(path) state_windows_remove(path)
 #define stat(path,info) state_windows_stat(path,info)

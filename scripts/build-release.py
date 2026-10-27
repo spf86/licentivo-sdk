@@ -112,6 +112,11 @@ def native_build(args, output, version, work):
         if windows and not vector.exists():
             vector = work / "native-build/Release/licentivo_vectors.exe"
         run(vector, ROOT / "tests/lease-vectors.json")
+        for checker in (["licentivo_deadlines", "licentivo_state_files"] if windows else ["licentivo_deadlines"]):
+            executable = work / "native-build" / (checker + (".exe" if windows else ""))
+            if windows and not executable.exists():
+                executable = work / "native-build/Release" / (checker + ".exe")
+            run(executable)
         run("cmake", "--install", work / "native-build", "--config", "Release")
     elif windows and curl_root:
         for folder in ("lib", "include/licentivo/c/vendor", "include/licentivo/cpp", "lib/cmake/Licentivo", "licenses"):
