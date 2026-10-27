@@ -1,4 +1,43 @@
 /* Included by licentivo.c only. Private task IDs/outcome, never business data. */
+static int task_time_digits(const char*value,int offset,int length,int*out){
+ int result=0;for(int i=0;i<length;i++){unsigned char ch=(unsigned char)value[offset+i];if(ch<'0'||ch>'9')return 0;result=result*10+ch-'0';}*out=result;return 1;
+}
+/* Reservation receipts use RFC 3339, including fractional seconds and offsets.
+ * Convert the civil date directly so parsing is independent of the host timezone. */
+static int task_deadline(const char*value,double*out){
+ if(!value)return 0;size_t length=strlen(value);if(length<20||length>35)return 0;
+ if(value[4]!='-'||value[7]!='-'||value[10]!='T'||value[13]!=':'||value[16]!=':')return 0;
+ int year,month,day,hour,minute,second;
+ if(!task_time_digits(value,0,4,&year)||!task_time_digits(value,5,2,&month)||!task_time_digits(value,8,2,&day)||!task_time_digits(value,11,2,&hour)||!task_time_digits(value,14,2,&minute)||!task_time_digits(value,17,2,&second))return 0;
+ if(year<1||month<1||month>12||hour>23||minute>59||second>59)return 0;
+ const int month_days[]={31,28,31,30,31,30,31,31,30,31,30,31};int leap=year%4==0&&(year%100!=0||year%400==0);
+ if(day<1||day>month_days[month-1]+(month==2&&leap))return 0;
+ size_t pos=19;double fraction=0;
+ if(value[pos]=='.'){
+  pos++;int digits=0;double place=.1;
+  while(pos<length&&value[pos]>='0'&&value[pos]<='9'){if(++digits>9)return 0;fraction+=(value[pos++]-'0')*place;place*=.1;}
+  if(!digits)return 0;
+ }
+ int offset=0;
+ if(pos+1==length&&value[pos]=='Z')pos++;
+ else if(pos+6==length&&(value[pos]=='+'||value[pos]=='-')&&value[pos+3]==':'){
+  int hours,minutes;if(!task_time_digits(value,(int)pos+1,2,&hours)||!task_time_digits(value,(int)pos+4,2,&minutes)||hours>23||minutes>59)return 0;
+  offset=(hours*60+minutes)*60*(value[pos]=='+'?1:-1);pos+=6;
+ }else return 0;
+ if(pos!=length)return 0;
+ int64_t previous=year-1,days=365*previous+previous/4-previous/100+previous/400-719162;
+ for(int m=1;m<month;m++)days+=month_days[m-1]+(m==2&&leap);
+ *out=(double)((days+day-1)*86400+hour*3600+minute*60+second-offset)+fraction;return 1;
+}
+static double task_wall_time(void){
+#ifdef _WIN32
+ FILETIME raw;ULARGE_INTEGER ticks;GetSystemTimeAsFileTime(&raw);ticks.LowPart=raw.dwLowDateTime;ticks.HighPart=raw.dwHighDateTime;
+ return (double)(ticks.QuadPart-116444736000000000ULL)/10000000.0;
+#else
+ struct timespec now;if(clock_gettime(CLOCK_REALTIME,&now)==0)return (double)now.tv_sec+now.tv_nsec/1e9;
+ return (double)time(NULL);
+#endif
+}
 static int task_error(ln_client*c,const char*code){lock(c);snprintf(c->error,sizeof(c->error),"%s",code);c->http_status=0;c->retryable=0;c->request_id[0]=0;view_lock(c);int online=c->view_online;view_unlock(c);publish(c,online);unlock(c);return 0;}
 static int task_enter(ln_client*c){view_lock(c);int busy=c->task_busy;if(!busy)c->task_busy=1;view_unlock(c);return !busy;}
 static void task_leave(ln_client*c){view_lock(c);c->task_busy=0;view_unlock(c);}
@@ -25,7 +64,7 @@ static int task_finish(ln_client*c,const char*path,cJSON*task,int succeeded){
  char*raw=succeeded?ln_commit(c,text(task,"reservation_id"),text(task,"operation_id")):ln_cancel(c,text(task,"reservation_id"),text(task,"operation_id"));
  cJSON*receipt=raw?ln_json(raw):NULL;ln_free_string(raw);if(!receipt)return 0;
  const char*state=text(receipt,"status"),*expected=succeeded?"committed":"canceled";
- int ok=state&&!strcmp(state,expected);cJSON_Delete(receipt);
+ int ok=state&&(!strcmp(state,expected)||(!succeeded&&!strcmp(state,"expired")));cJSON_Delete(receipt);
  if(!ok)return task_error(c,"RESERVATION_CLOSED");task_state(task,expected);
  return write_state(path,task)?1:task_error(c,"TASK_JOURNAL_ERROR");
 }
@@ -49,10 +88,13 @@ int ln_run_metered_feature(ln_client*c,const char*feature,int64_t quantity,const
  const char*held=text(hold,"status");
  if(held&&!strcmp(held,"committed")){cJSON_ReplaceItemInObjectCaseSensitive(task,"reservation_id",cJSON_CreateString(text(hold,"reservation_id")));task_state(task,"committed");cJSON_Delete(hold);ok=write_state(path,task)?1:task_error(c,"TASK_JOURNAL_ERROR");goto done;}
  if(!held||strcmp(held,"pending")||!text(hold,"reservation_id")){cJSON_Delete(hold);task_error(c,"RESERVATION_CLOSED");goto done;}
+ double deadline=0;int valid_deadline=task_deadline(text(hold,"expires_at"),&deadline);
  cJSON_ReplaceItemInObjectCaseSensitive(task,"reservation_id",cJSON_CreateString(text(hold,"reservation_id")));cJSON_Delete(hold);task_state(task,"business_running");
  if(!write_state(path,task)){raw=ln_cancel(c,text(task,"reservation_id"),id);ln_free_string(raw);task_error(c,"TASK_JOURNAL_ERROR");goto done;}
- if(!action(context)){
-  task_state(task,"cancel_pending");if(write_state(path,task))task_finish(c,path,task,0);task_error(c,"BUSINESS_ACTION_FAILED");goto done;
+ int allowed=ln_check_feature(c,feature),unexpired=valid_deadline&&deadline>task_wall_time();
+ if(!allowed||!unexpired||!action(context)){
+  const char*failure=!allowed?"FEATURE_NOT_ENTITLED":!unexpired?"RESERVATION_EXPIRED":"BUSINESS_ACTION_FAILED";
+  task_state(task,"cancel_pending");if(write_state(path,task))task_finish(c,path,task,0);task_error(c,failure);goto done;
  }
  task_state(task,"commit_pending");if(!write_state(path,task)){task_error(c,"BUSINESS_COMPLETED_JOURNAL_ERROR");goto done;}
  ok=task_finish(c,path,task,1);

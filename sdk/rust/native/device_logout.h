@@ -45,7 +45,7 @@ static void load_logout_state(ln_client*c){
  for(cJSON*s=records->child;s;s=s->next){const char*b=logout_text(s,"binding_key");if(b[0]&&cJSON_IsTrue(get(s,"signed_out"))&&!get(c->logout_bindings,b))cJSON_AddBoolToObject(c->logout_bindings,b,1);}
  for(cJSON*s=records->child;s;s=s->next){const char*b=logout_text(s,"binding_key");if((!strcmp(h,logout_text(s,"source_hash"))||(logout_text(c->cfg,"launch_connection_id")[0]&&binding[0]&&!strcmp(b,binding))||(!c->auth&&!source_input(c)[0]))&&(!b[0]||!binding[0]||!strcmp(b,binding))){cJSON_Delete(c->logout_state);c->logout_state=cJSON_Duplicate(s,1);if(cJSON_IsTrue(get(s,"signed_out"))&&!text(c->cfg,"license_key")[0])set_denied(c);}for(const cJSON*t=get(s,"pending")->child;t;t=t->next){int found=0;for(cJSON*x=tickets->child;x;x=x->next)if(!strcmp(logout_text(t,"operation_id"),logout_text(x,"operation_id")))found=1;if(!found)cJSON_AddItemToArray(tickets,cJSON_Duplicate(t,1));}}
  cJSON_ReplaceItemInObjectCaseSensitive(c->logout_state,"pending",tickets);cJSON_Delete(records);
- if(is_denied(c)){cJSON_Delete(c->auth);c->auth=NULL;}
+ if(is_denied(c)||cJSON_IsTrue(get(c->logout_state,"signed_out"))){cJSON_Delete(c->auth);c->auth=NULL;}
 }
 static int acknowledge_logout(ln_client*c,const char*operation){
  cJSON*records=logout_records(c);char*dir=logout_directory(c);int ok=dir!=NULL;
@@ -55,17 +55,19 @@ static int acknowledge_logout(ln_client*c,const char*operation){
  free(dir);cJSON_Delete(records);return ok;
 }
 static int revocation_error(const char*code){const char*codes[]={"LICENSE_REVOKED","LICENSE_SUSPENDED","LICENSE_EXPIRED","DEVICE_RELEASED","DEVICE_NOT_ACTIVE","DEVICE_CREDENTIAL_REVOKED","DEVICE_CREDENTIAL_INVALID","AUTHORIZATION_SESSION_REVOKED","AUTHORIZATION_SESSION_EXPIRED","LAUNCH_LOGIN_REQUIRED","LAUNCH_ENTITLEMENT_REVOKED","LAUNCH_ENTITLEMENT_EXPIRED"};for(size_t i=0;i<sizeof(codes)/sizeof(codes[0]);i++)if(!strcmp(code,codes[i]))return 1;return 0;}
-static int deny_runtime(ln_client*c){
+static int deny_runtime_mode(ln_client*c,int queue_release){
  set_denied(c);if(!c->logout_state)new_logout_state(c);char h[65];
  if((source_input(c)[0]||c->auth)&&source_hash(c,h))cJSON_ReplaceItemInObjectCaseSensitive(c->logout_state,"source_hash",cJSON_CreateString(h));
  cJSON_ReplaceItemInObjectCaseSensitive(c->logout_state,"signed_out",cJSON_CreateBool(1));
+ cJSON_DeleteItemFromObjectCaseSensitive(c->logout_state,"offline_request_id");cJSON_AddStringToObject(c->logout_state,"offline_request_id","");
  const cJSON*ticket=get(c->auth,"logout_ticket");const char*operation=text(ticket,"operation_id");int found=0;
  char binding[80];logout_binding(ticket,binding);if(binding[0]){cJSON_DeleteItemFromObjectCaseSensitive(c->logout_state,"binding_key");cJSON_AddStringToObject(c->logout_state,"binding_key",binding);if(c->logout_bindings&&!get(c->logout_bindings,binding))cJSON_AddBoolToObject(c->logout_bindings,binding,1);}
- if(operation){for(cJSON*p=pending_logouts(c)->child;p;p=p->next)if(text(p,"operation_id")&&!strcmp(operation,text(p,"operation_id")))found=1;if(!found)cJSON_AddItemToArray(pending_logouts(c),cJSON_Duplicate(ticket,1));}
+ if(queue_release&&operation){for(cJSON*p=pending_logouts(c)->child;p;p=p->next)if(text(p,"operation_id")&&!strcmp(operation,text(p,"operation_id")))found=1;if(!found)cJSON_AddItemToArray(pending_logouts(c),cJSON_Duplicate(ticket,1));}
  int ok=save_logout_state(c);invalidate(c);cJSON_Delete(c->auth);c->auth=NULL;c->auth_dirty=0;
  /* Keep the immutable configuration graph stable for concurrent local checks. */
  const char*private_names[]={"license_key","identity_token"};for(int i=0;i<2;i++){char*secret=(char*)text(c->cfg,private_names[i]);if(secret){size_t count=strlen(secret);volatile unsigned char*p=(volatile unsigned char*)secret;while(count--)*p++=0;}}return ok;
 }
+static int deny_runtime(ln_client*c){return deny_runtime_mode(c,1);}
 static int logout_binding_blocked(ln_client*c,const cJSON*result){
  const char*connection=text(c->cfg,"launch_connection_id");char binding[80];const cJSON*ticket=get(result,"logout_ticket");logout_binding(ticket,binding);
  if(!connection||!connection[0]||!cJSON_IsTrue(get(c->logout_bindings,binding)))return 0;

@@ -18,6 +18,61 @@ static double clock_seconds(void){struct timespec t;clock_gettime(CLOCK_MONOTONI
 #include "vendor/cJSON.h"
 static char *read_text(const char *path) { FILE*f=fopen(path,"rb");if(!f)return NULL;char*b=calloc(32769,1);size_t n=fread(b,1,32768,f);int bad=ferror(f)||!feof(f);fclose(f);if(bad||!n){free(b);return NULL;}return b;}
 static int used_is(const char*s,double used,double over){cJSON*j=s?cJSON_Parse(s):NULL;const cJSON*u=cJSON_GetObjectItemCaseSensitive(j,"used"),*o=cJSON_GetObjectItemCaseSensitive(j,"overage");int ok=cJSON_IsNumber(u)&&u->valuedouble==used&&cJSON_IsNumber(o)&&o->valuedouble==over;cJSON_Delete(j);return ok;}
+static int lifecycle_import(ln_client*c,const char*path,int fresh){char a[4096],b[4096];snprintf(a,sizeof(a),"%s%s.request.json",path,fresh?".fresh":"");snprintf(b,sizeof(b),"%s%s.response.json",path,fresh?".fresh":"");char*request=read_text(a),*response=read_text(b);int ok=request&&response&&ln_import_offline(c,request,response);free(request);free(response);return ok;}
+static int lifecycle_export(ln_client*c,const char*path,const char*suffix,const char*operation){char target[4096];snprintf(target,sizeof(target),"%s%s",path,suffix);char*request=ln_offline_request(c,operation);if(!request)return 0;FILE*f=fopen(target,"wb");int ok=f&&fwrite(request,1,strlen(request),f)==strlen(request);if(f&&fclose(f))ok=0;ln_free_string(request);return ok;}
+static int lifecycle_allowed(ln_client*c){char*raw=ln_status(c);cJSON*s=raw?ln_json(raw):NULL;ln_free_string(raw);const cJSON*state=cJSON_GetObjectItemCaseSensitive(s,"state");int ok=ln_check_feature(c,"export")&&cJSON_IsString(state)&&!strcmp(state->valuestring,"offline_valid");cJSON_Delete(s);return ok;}
+static int offline_lifecycle(ln_client*c,const char*path){
+    char target[4096];snprintf(target,sizeof(target),"%s.phase",path);char*phase=read_text(target);if(!phase)return 0;int ok=0;
+    if(!strcmp(phase,"export"))ok=lifecycle_export(c,path,".request.json","activate");
+    else if(!strcmp(phase,"import")||!strcmp(phase,"retry"))ok=lifecycle_import(c,path,0)&&(strcmp(phase,"retry")||lifecycle_import(c,path,0))&&lifecycle_allowed(c);
+    else if(!strcmp(phase,"fail_import"))ok=!lifecycle_import(c,path,0)&&!ln_check_feature(c,"export");
+    else if(!strcmp(phase,"release"))ok=lifecycle_import(c,path,0)&&lifecycle_export(c,path,".release.json","deactivate")&&!ln_check_feature(c,"export");
+    else if(!strcmp(phase,"signedout")){char*request=ln_offline_request(c,"activate");ok=!request&&!ln_activate(c)&&!lifecycle_import(c,path,0)&&!ln_check_feature(c,"export");ln_free_string(request);}
+    else if(!strcmp(phase,"logout"))ok=lifecycle_import(c,path,0)&&ln_logout(c)&&!ln_logout_pending(c)&&!ln_check_feature(c,"export");
+    else if(!strcmp(phase,"old_export"))ok=!lifecycle_import(c,path,0)&&!ln_check_feature(c,"export")&&lifecycle_export(c,path,".fresh.request.json","activate");
+    else if(!strcmp(phase,"renew_request"))ok=lifecycle_export(c,path,".fresh.request.json","activate")&&!lifecycle_import(c,path,0)&&!ln_check_feature(c,"export");
+    else if(!strcmp(phase,"fresh_import"))ok=lifecycle_import(c,path,1)&&lifecycle_allowed(c)&&!lifecycle_import(c,path,0)&&lifecycle_allowed(c)&&lifecycle_import(c,path,1)&&lifecycle_allowed(c);
+    if(ok)printf("C: offline lifecycle phase passed %s\n",phase);free(phase);return ok;
+}
+static int metering_action(void*raw){(*(int*)raw)++;return 1;}
+static int metering_failed_action(void*raw){(*(int*)raw)++;return 0;}
+static int metering_boundary(ln_client*c,int denied,int recover){
+    if(!ln_activate(c))return 0;int calls=0;
+    if(recover)for(int i=0;i<2;i++)if(!ln_resolve_metered_feature(c,"boundary-job",!denied))return 0;
+    int ok=ln_run_metered_feature(c,"export",1,"boundary-job",metering_action,&calls);
+    if(ok==denied||calls!=(recover||denied?0:1))return 0;
+    if(recover&&denied)return ln_run_metered_feature(c,"export",1,"replacement-job",metering_action,&calls)&&calls==1;
+    return 1;
+}
+static int metering_expiry(ln_client*c,int cancel,int recover){
+    int calls=0;
+    if(!recover){
+        if(!ln_activate(c))return 0;
+        return !ln_run_metered_feature(c,"export",1,"expired-job",cancel?metering_failed_action:metering_action,&calls)&&calls==1;
+    }
+    if(cancel){
+        for(int i=0;i<2;i++)if(!ln_resolve_metered_feature(c,"expired-job",0))return 0;
+        if(ln_resolve_metered_feature(c,"expired-job",1)||ln_run_metered_feature(c,"export",1,"expired-job",metering_action,&calls)||calls)return 0;
+        return ln_run_metered_feature(c,"export",1,"replacement-job",metering_action,&calls)&&calls==1;
+    }
+    return !ln_run_metered_feature(c,"export",1,"expired-job",metering_action,&calls)&&calls==0&&!ln_resolve_metered_feature(c,"expired-job",1)&&!ln_resolve_metered_feature(c,"expired-job",0);
+}
+static int metering_regression(ln_client*c,const char*mode){
+    if(!ln_activate(c))return 0;
+    int calls=0;
+    if(!strcmp(mode,"--metering-jobs-test")){
+        const char*jobs[]={"ExportJob","exportjob","ExportJob"};
+        for(int i=0;i<3;i++)if(!ln_run_metered_feature(c,"export",1,jobs[i],metering_action,&calls))return 0;
+        return calls==2;
+    }
+    if(!strcmp(mode,"--metering-features-test")){
+        const char*features[]={"export","Export"};const char*jobs[]={"export-job","Export-job"};
+        for(int i=0;i<2;i++){char*raw=ln_consume(c,features[i],1,jobs[i]);int ok=used_is(raw,1,0);ln_free_string(raw);if(!ok)return 0;}
+        return 1;
+    }
+    char*hold=ln_reserve(c,"export",1,"pending-job");if(!hold)return 0;ln_free_string(hold);
+    return !ln_run_metered_feature(c,"export",1,"pending-job",metering_action,&calls)&&calls==0;
+}
 
 static cJSON*receipt(char*value){if(!value)return NULL;cJSON*j=ln_json(value);ln_free_string(value);return j;}
 static int reservation_is(const cJSON*j,const char*status,double used){const cJSON*s=cJSON_GetObjectItemCaseSensitive(j,"status"),*cons=cJSON_GetObjectItemCaseSensitive(j,"consumption"),*u=cJSON_GetObjectItemCaseSensitive(cons,"used");return cJSON_IsString(s)&&!strcmp(s->valuestring,status)&&cJSON_IsNumber(u)&&u->valuedouble==used;}
@@ -28,6 +83,12 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) if (!strcmp(argv[i], "--cache-test")) cache_test = 1;
     ln_client *client = ln_init_file(path);
     if (!client) { fprintf(stderr, "C: invalid configuration\n"); return 1; }
+    for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--offline-lifecycle-test")){int ok=offline_lifecycle(client,path);if(!ok)fprintf(stderr,"C offline lifecycle failed: %s\n",ln_last_error(client));ln_destroy(client);return ok?0:1;}
+    int metering_recover=0;for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--metering-recover-test"))metering_recover=1;
+    int metering_denied=0;for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--expect-denied"))metering_denied=1;
+    for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--metering-boundary-test")){int ok=metering_boundary(client,metering_denied,metering_recover);if(!ok)fprintf(stderr,"C execution boundary regression failed: %s\n",ln_last_error(client));ln_destroy(client);return ok?0:1;}
+    for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--metering-expired-cancel-test")||!strcmp(argv[i],"--metering-expired-commit-test")){int ok=metering_expiry(client,!strcmp(argv[i],"--metering-expired-cancel-test"),metering_recover);if(!ok)fprintf(stderr,"C expired task regression failed: %s\n",ln_last_error(client));ln_destroy(client);return ok?0:1;}
+    for(int i=1;i<argc;i++)if(!strncmp(argv[i],"--metering-",11)){int ok=metering_regression(client,argv[i]);if(!ok)fprintf(stderr,"C metering regression failed: %s\n",ln_last_error(client));ln_destroy(client);return ok?0:1;}
     for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--logout-wait")){
         char ready[4096],gate[4096];snprintf(ready,sizeof(ready),"%s.ready",path);snprintf(gate,sizeof(gate),"%s.continue",path);FILE*f=ln_check_feature(client,"export")?fopen(ready,"wb"):NULL;if(!f){ln_destroy(client);return 1;}fputs("ready",f);fclose(f);double deadline=clock_seconds()+30;
         for(;;){f=fopen(gate,"rb");if(f){fclose(f);break;}if(clock_seconds()>deadline){ln_destroy(client);return 1;}

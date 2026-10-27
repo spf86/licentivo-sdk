@@ -41,7 +41,7 @@ final class FeatureTasks {
         try{receipt=succeeded?client.commit(Json.text(task,"reservation_id"),Json.text(task,"operation_id")):client.cancel(Json.text(task,"reservation_id"),Json.text(task,"operation_id"));}
         catch(Exception error){throw new IOException("confirmation pending for operation "+task.get("operation_id")+"; do not repeat business",error);}
         String expected=succeeded?"committed":"canceled";
-        if(!expected.equals(receipt.get("status")))throw new IllegalStateException("reservation closed without requested outcome; do not repeat business");
+        if(!expected.equals(receipt.get("status")) && (succeeded || !"expired".equals(receipt.get("status"))))throw new IllegalStateException("reservation closed without requested outcome; do not repeat business");
         task.put("state",expected);save(path,task);
     }
     void run(String feature,long quantity,String id,Client.FeatureAction action) throws Exception {
@@ -64,7 +64,10 @@ final class FeatureTasks {
             if(!"pending".equals(hold.get("status")))throw new IllegalStateException("reservation is closed; business was not run");
             task.put("reservation_id",hold.get("reservation_id"));task.put("state","business_running");
             try{save(path,task);}catch(Exception error){try{client.cancel(Json.text(task,"reservation_id"),id);}catch(Exception ignored){}throw error;}
-            try{action.run();}catch(Exception error){task.put("state","cancel_pending");try{save(path,task);finish(path,task,false);}catch(Exception ignored){}throw error;}
+            try{client.runFeature(feature,()->{
+                if(!java.time.Instant.parse(Json.text(hold,"expires_at")).isAfter(java.time.Instant.now()))throw new IllegalStateException("reservation expired; business was not run");
+                action.run();
+            });}catch(Exception error){task.put("state","cancel_pending");try{save(path,task);finish(path,task,false);}catch(Exception ignored){}throw error;}
             task.put("state","commit_pending");
             try{save(path,task);}catch(Exception error){throw new IOException("business completed; journal update failed; do not repeat operation "+id,error);}
             finish(path,task,true);

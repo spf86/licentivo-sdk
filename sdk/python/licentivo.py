@@ -156,7 +156,7 @@ class Client:
         if not config['license_key'] and not config.get('identity_token') and not self.auth and not self.signed_out: raise ValueError('enter a license key or temporary activation code')
         try:
             p=Path(config.get('cache_path','')); s=loads(p.read_bytes()) if p.is_file() and p.stat().st_size<=LIMIT else None
-            if not self.signed_out and s and s['version']==1 and s['license_hash']==self._hash() and time.time()+300>=s['observed_at']:
+            if not self.signed_out and not self.logout_journal['signed_out'] and s and s['version']==1 and s['license_hash']==self._hash() and time.time()+300>=s['observed_at']:
                 c=verify(s['lease'],config['trusted_keys'],config['product_id'],config['device_id'])
                 if policy_mode(c)!='none' and c.get('capabilities',{}).get('license_model')!='floating' and c.get('capabilities',{}).get('app_version','')==config.get('app_version',''):
                     self.state=s;self.wall=s['observed_at'];self.interval=c.get('runtime_policy',{}).get('heartbeat_seconds',3600)
@@ -252,6 +252,7 @@ class Client:
                     retry=int(request_headers.get('Retry-After','0')) if request_headers.get('Retry-After','0').isdigit() else 0
                     error=APIError(status,env.get('error',{}).get('code','UNEXPECTED_RESPONSE'),env.get('request_id',''),min(86400,retry))
                     if status>=500: last=error;continue
+                    if licentivo_logout.authorization_rejected(error): self._invalidate()
                     raise error
                 return env['data']
             except (urllib.error.URLError,TimeoutError,OSError) as e: last=e
@@ -302,6 +303,13 @@ class Client:
         return licentivo_logout.logout(self)
     def retry_pending_logouts(self):
         return licentivo_logout.retry(self)
+    def _heartbeat_delay(self):
+        delay=max(600,self.interval)*random.uniform(1,1.1)
+        try:
+            remaining=self._check()['expires_at']-time.time()
+            if remaining>0: delay=min(delay,max(1,remaining*.8))
+        except Exception: pass
+        return max(delay,self.retry_at-time.time())
     def start_heartbeat(self,on_error=None):
         try:
             if self.interval==0: return
@@ -309,7 +317,7 @@ class Client:
         if self.thread and self.thread.is_alive(): return
         self.stop.clear()
         def run():
-            while self.interval and not self.stop.wait(max(max(600,self.interval)*random.uniform(1,1.1),self.retry_at-time.time())):
+            while self.interval and not self.stop.wait(self._heartbeat_delay()):
                 try: self.heartbeat()
                 except Exception as e:
                     if on_error: on_error(e)
@@ -383,19 +391,34 @@ class Client:
                 raise
     def offline_request(self,operation='activate'):
         with self.lock:
-            self._prepare_credential()
+            if self.signed_out: raise ValueError('enter a new activation input before exporting an offline request')
             if operation not in ['activate','deactivate']: raise ValueError('invalid offline operation')
-            activation=''
-            if operation=='deactivate': activation=self._check()['activation_id'];self._invalidate()
-            return self._body(activation) | {'version':1,'request_id':str(uuid.uuid4()),'created_at':int(time.time()),'operation':operation}
+            self._prepare_credential()
+            activation=self._check()['activation_id'] if operation=='deactivate' else ''
+            request=self._body(activation) | {'version':1,'request_id':str(uuid.uuid4()),'created_at':int(time.time()),'operation':operation}
+            if operation=='activate':
+                self.auth['offline_request_id']=request['request_id'];self.auth_dirty=True;self._save_credential();licentivo_logout.remember_offline_request(self,request['request_id'])
+            else:
+                failure=licentivo_logout.deny(self,False)
+                if failure: raise failure
+            return request
     def import_offline(self,request,response):
         with self.lock:
             if self.signed_out: raise APIError(403,'LAUNCH_LOGIN_REQUIRED')
-            if response.get('version')!=1 or request.get('operation')!='activate' or response.get('operation')!='activate' or response.get('request_id')!=request.get('request_id') or any(request.get(k)!=self._body().get(k) for k in ['product_id','device_id','license_key']): raise ValueError('offline context mismatch')
+            key=request.get('license_key')
+            token=request.get('identity_token','');source=token or key
+            same_input=key==self._runtime_key() and (not token or token==self.config.get('identity_token'))
+            same_source=isinstance(source,str) and bool(source) and (same_input or (self.auth or {}).get('device_key') and hashlib.sha256(source.encode()).hexdigest()==self.auth.get('source_hash'))
+            if response.get('version')!=1 or request.get('operation')!='activate' or response.get('operation')!='activate' or response.get('request_id')!=request.get('request_id') or any(request.get(k)!=self.config.get(k) for k in ['product_id','device_id']) or not same_source: raise ValueError('offline context mismatch')
+            current=self.logout_journal.get('offline_request_id','') if self.logout_journal['signed_out'] else (self.auth or {}).get('offline_request_id') or self.logout_journal.get('offline_request_id','')
+            if current and current!=request.get('request_id') or self.logout_journal['signed_out'] and not current: raise ValueError('offline approval is no longer current; generate a fresh request')
             result=response['result'];c=verify(result['lease'],self.config['trusted_keys'],self.config['product_id'],self.config['device_id']);self._context(c)
             if policy_mode(c)=='none' or c.get('offline_request_id')!=request['request_id'] or c['activation_id']!=result['activation_id']: raise ValueError('offline signature context mismatch')
-            self._accept_credential(result)
-            self.wall=time.time();self.tick=time.monotonic();self.state={'version':1,'license_hash':self._hash(),'lease':result['lease'],'observed_at':int(self.wall)};self.interval=c['runtime_policy']['heartbeat_seconds'];self._save();self._publish(False);return c
+            self._accept_credential(result);self._prepare_credential();self.auth['offline_request_id']=request['request_id'];self.auth_dirty=True;self._save_credential()
+            self.wall=time.time();self.tick=time.monotonic();self.state={'version':1,'license_hash':self._hash(),'lease':result['lease'],'observed_at':int(self.wall)};self.interval=c.get('runtime_policy',{}).get('heartbeat_seconds',3600)
+            try: self._save()
+            except Exception: self._invalidate();raise
+            self._publish(False);return c
     def _publish(self,online,error=None):
         before=self.status();self.snapshot=(self.state,self.wall,self.tick);self.online=online;self.last_error=error
         if isinstance(error,APIError) and error.retry_after_seconds: self.retry_at=time.time()+error.retry_after_seconds

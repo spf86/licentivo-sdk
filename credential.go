@@ -13,15 +13,16 @@ import (
 // Store the device credential separately from the lease so expiry, online-only policies,
 // and floating-session shutdown cannot discard the credential used after a device transfer.
 type credentialState struct {
-	LogoutTicket *LogoutTicket `json:"logout_ticket,omitempty"`
-	Version      int           `json:"version"`
-	SourceHash   string        `json:"source_hash"`
-	ProductID    string        `json:"product_id"`
-	Origin       string        `json:"origin"`
-	DeviceID     string        `json:"device_id"`
-	DeviceKey    string        `json:"device_key"`
-	RequestID    string        `json:"request_id"`
-	SessionID    string        `json:"session_id"`
+	LogoutTicket     *LogoutTicket `json:"logout_ticket,omitempty"`
+	Version          int           `json:"version"`
+	SourceHash       string        `json:"source_hash"`
+	ProductID        string        `json:"product_id"`
+	Origin           string        `json:"origin"`
+	DeviceID         string        `json:"device_id"`
+	DeviceKey        string        `json:"device_key"`
+	RequestID        string        `json:"request_id"`
+	SessionID        string        `json:"session_id"`
+	OfflineRequestID string        `json:"offline_request_id,omitempty"`
 }
 
 func temporaryKey(key string) bool { return strings.HasPrefix(key, "lv_tmp_") }

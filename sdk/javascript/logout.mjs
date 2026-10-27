@@ -5,6 +5,8 @@ import {randomUUID,createHash} from 'node:crypto';
 
 const revoked=new Set(['LICENSE_REVOKED','LICENSE_SUSPENDED','LICENSE_EXPIRED','DEVICE_RELEASED','DEVICE_NOT_ACTIVE','DEVICE_CREDENTIAL_REVOKED','DEVICE_CREDENTIAL_INVALID','AUTHORIZATION_SESSION_REVOKED','AUTHORIZATION_SESSION_EXPIRED','LAUNCH_LOGIN_REQUIRED','LAUNCH_ENTITLEMENT_REVOKED','LAUNCH_ENTITLEMENT_EXPIRED']);
 export const explicitRevocation=error=>revoked.has(error?.code);
+const authorizationDenials=new Set(['PRODUCT_DISABLED','TENANT_SUSPENDED','LICENSE_INVALID','DEVICE_CREDENTIAL_MISMATCH','LAUNCH_ENVIRONMENT_MISMATCH','SESSION_EXPIRED','VERSION_NOT_ENTITLED','VERSION_NOT_PUBLISHED','MAINTENANCE_EXPIRED','MAINTENANCE_STATE_INVALID','FEATURE_NOT_ENTITLED','HARDWARE_ID_REQUIRED','VIRTUAL_MACHINE_NOT_ALLOWED','SDK_UPGRADE_REQUIRED','LAUNCH_POLICY_UNSUPPORTED','RUNTIME_WINDOW_INVALID']);
+export const authorizationRejected=error=>explicitRevocation(error)||authorizationDenials.has(error?.code);
 const digest=s=>createHash('sha256').update(s).digest('hex');
 const binding=t=>t?`${t.activation_id}:${t.expected_generation}`:'';
 function directory(c){return join(process.env.LOCALAPPDATA||process.env.XDG_CACHE_HOME||join(homedir(),'.cache'),'Licentivo','logout',digest([resolve(c.cfg.cache_path),c.cfg.base_url,c.cfg.product_id,c.cfg.device_id].join('\n')));}
@@ -36,16 +38,17 @@ export function loadLogout(c){
   for(const t of j.pending)pending.set(t.operation_id,t);
  }
  c.logoutJournal.pending=[...pending.values()];
- if(c.signedOut)c.auth=null;
+ if(c.signedOut||c.logoutJournal.signed_out)c.auth=null;
  if(c.logoutJournal.pending.length)recoverLogout(c);
 }
-export function deny(c){
+export function deny(c,queueRelease=true){
  c.signedOut=true;
  const hash=c.hash();if(c.cfg.license_key||c.cfg.identity_token||c.auth)c.logoutJournal.source_hash=hash;
  c.logoutJournal.signed_out=true;
+ c.logoutJournal.offline_request_id='';
  const ticket=c.auth?.logout_ticket;
  if(ticket){c.logoutJournal.binding_key=binding(ticket);c.logoutBindings.add(binding(ticket));}
- if(ticket&&!c.logoutJournal.pending.some(p=>p.operation_id===ticket.operation_id))c.logoutJournal.pending.push(ticket);
+ if(queueRelease&&ticket&&!c.logoutJournal.pending.some(p=>p.operation_id===ticket.operation_id))c.logoutJournal.pending.push(ticket);
  let failure;
  try{save(c);}catch(e){failure=e;}
  c.invalidate();clearTimeout(c.timer);c.timer=null;c.controller.abort();c.auth=null;c.authDirty=false;c.cfg.license_key='';c.cfg.identity_token='';
@@ -56,6 +59,7 @@ export function acceptLogin(c,ticket,ErrorType){
  if(c.cfg.launch_connection_id&&c.logoutBindings.has(binding(ticket))){if(c.auth)c.auth.logout_ticket=ticket;deny(c);throw new ErrorType(403,'LAUNCH_LOGIN_REQUIRED');}
  if(c.logoutJournal.signed_out){c.logoutJournal.signed_out=false;save(c);}
 }
+export function rememberOfflineRequest(c,id){if(c.logoutJournal.signed_out){c.logoutJournal.offline_request_id=id;save(c);}}
 function acknowledge(c,operation){
  let names;try{names=readdirSync(directory(c));}catch(e){if(e.code==='ENOENT')return;throw e;}
  for(const name of names){if(!name.endsWith('.json'))continue;const path=join(directory(c),name);if(statSync(path).size>65536)throw Error('invalid logout journal');const j=JSON.parse(readFileSync(path,'utf8'));const pending=j.pending.filter(t=>t.operation_id!==operation);if(pending.length!==j.pending.length){j.pending=pending;write(path,j);}}

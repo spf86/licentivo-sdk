@@ -4,7 +4,7 @@ require 'json'
 require 'monitor'
 
 module Licentivo
-  VERSION = '0.11.3'
+  VERSION = '0.11.4'
 
   class Error < StandardError
     attr_reader :code, :http_status, :request_id, :retryable, :retry_after_seconds

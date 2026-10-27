@@ -10,8 +10,13 @@ import urllib.request
 
 REVOKED = frozenset(['LICENSE_REVOKED','LICENSE_SUSPENDED','LICENSE_EXPIRED','DEVICE_RELEASED','DEVICE_NOT_ACTIVE','DEVICE_CREDENTIAL_REVOKED','DEVICE_CREDENTIAL_INVALID','AUTHORIZATION_SESSION_REVOKED','AUTHORIZATION_SESSION_EXPIRED','LAUNCH_LOGIN_REQUIRED','LAUNCH_ENTITLEMENT_REVOKED','LAUNCH_ENTITLEMENT_EXPIRED'])
 
+AUTHORIZATION_DENIALS = frozenset(['PRODUCT_DISABLED', 'TENANT_SUSPENDED', 'LICENSE_INVALID', 'DEVICE_CREDENTIAL_MISMATCH', 'LAUNCH_ENVIRONMENT_MISMATCH', 'SESSION_EXPIRED', 'VERSION_NOT_ENTITLED', 'VERSION_NOT_PUBLISHED', 'MAINTENANCE_EXPIRED', 'MAINTENANCE_STATE_INVALID', 'FEATURE_NOT_ENTITLED', 'HARDWARE_ID_REQUIRED', 'VIRTUAL_MACHINE_NOT_ALLOWED', 'SDK_UPGRADE_REQUIRED', 'LAUNCH_POLICY_UNSUPPORTED', 'RUNTIME_WINDOW_INVALID'])
+
 def revoked(error):
     return getattr(error, 'code', '') in REVOKED
+
+def authorization_rejected(error):
+    return revoked(error) or getattr(error, 'code', '') in AUTHORIZATION_DENIALS
 
 def _binding(ticket):
     return f"{ticket['activation_id']}:{ticket['expected_generation']}" if ticket else ''
@@ -91,7 +96,7 @@ def load(client):
         for ticket in journal['pending']:
             pending[ticket['operation_id']] = ticket
     client.logout_journal['pending'] = list(pending.values())
-    if client.signed_out:
+    if client.signed_out or client.logout_journal['signed_out']:
         client.auth = None
     if client.logout_journal['pending']:
         recover(client)
@@ -106,16 +111,17 @@ def accept_login(client, ticket, error_type):
         client.logout_journal['signed_out'] = False
         _save(client)
 
-def deny(client):
+def deny(client, queue_release=True):
     client.signed_out = True
     if client.config['license_key'] or client.config.get('identity_token') or client.auth:
         client.logout_journal['source_hash'] = client._hash()
     client.logout_journal['signed_out'] = True
+    client.logout_journal['offline_request_id'] = ''
     ticket = (client.auth or {}).get('logout_ticket')
     if ticket:
         client.logout_journal['binding_key'] = _binding(ticket)
         client.logout_bindings.add(_binding(ticket))
-    if ticket and not any(t['operation_id'] == ticket['operation_id'] for t in client.logout_journal['pending']):
+    if queue_release and ticket and not any(t['operation_id'] == ticket['operation_id'] for t in client.logout_journal['pending']):
         client.logout_journal['pending'].append(ticket)
     error = None
     try:
@@ -131,6 +137,12 @@ def deny(client):
     if client.logout_journal['pending']:
         recover(client)
     return error
+
+def remember_offline_request(client, request_id):
+    if client.logout_journal['signed_out']:
+        client.logout_journal['offline_request_id'] = request_id
+        _save(client)
+
 
 def retry(client):
     with client.lock:

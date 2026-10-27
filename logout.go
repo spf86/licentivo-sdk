@@ -27,12 +27,13 @@ type LogoutResult struct {
 	RevocationPending bool
 }
 type logoutJournal struct {
-	Version    int            `json:"version"`
-	Revision   int64          `json:"revision,omitempty"`
-	SourceHash string         `json:"source_hash"`
-	BindingKey string         `json:"binding_key,omitempty"`
-	SignedOut  bool           `json:"signed_out"`
-	Pending    []LogoutTicket `json:"pending"`
+	Version          int            `json:"version"`
+	Revision         int64          `json:"revision,omitempty"`
+	SourceHash       string         `json:"source_hash"`
+	BindingKey       string         `json:"binding_key,omitempty"`
+	SignedOut        bool           `json:"signed_out"`
+	Pending          []LogoutTicket `json:"pending"`
+	OfflineRequestID string         `json:"offline_request_id,omitempty"`
 }
 
 func explicitRevocation(err error) bool {
@@ -202,12 +203,19 @@ func (c *Client) acknowledgeLogout(operation string) error {
 	return nil
 }
 func (c *Client) denyLocked() error {
+	return c.denyBindingLocked(true)
+}
+
+// Offline release exports carry their own revocation request. Persist the local
+// barrier without sending a second request that could invalidate the export.
+func (c *Client) denyBindingLocked(queueRelease bool) error {
 	c.denied.Store(true)
 	c.logoutJournal.Version = 1
 	if source := c.cacheLicenseHash(); source != "" && source != licenseHash("") {
 		c.logoutJournal.SourceHash = source
 	}
 	c.logoutJournal.SignedOut = true
+	c.logoutJournal.OfflineRequestID = ""
 	if binding := logoutBinding(c.auth.LogoutTicket); binding != "" {
 		c.logoutJournal.BindingKey = binding
 		if c.logoutBindings == nil {
@@ -215,7 +223,7 @@ func (c *Client) denyLocked() error {
 		}
 		c.logoutBindings[binding] = true
 	}
-	if c.auth.LogoutTicket != nil {
+	if queueRelease && c.auth.LogoutTicket != nil {
 		ticket := *c.auth.LogoutTicket
 		found := false
 		for _, p := range c.logoutJournal.Pending {

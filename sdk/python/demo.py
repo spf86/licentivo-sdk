@@ -10,12 +10,46 @@ parser.add_argument('--policy-test',action='store_true')
 parser.add_argument('--expect-denied',action='store_true')
 parser.add_argument('--cache-test', action='store_true')
 parser.add_argument('--refresh-test', action='store_true')
-for option in ['improvements-test','startup-test','advanced-test','offline-export','offline-import','floating-test','transfer-test','transfer-import','logout-retry','logout-wait']: parser.add_argument('--'+option,action='store_true')
+for option in ['improvements-test','startup-test','advanced-test','offline-export','offline-import','floating-test','transfer-test','transfer-import','logout-retry','logout-wait','metering-jobs-test','metering-features-test','metering-denial-test']: parser.add_argument('--'+option,action='store_true')
+for option in ['metering-expired-cancel-test','metering-expired-commit-test','metering-recover-test','metering-boundary-test']: parser.add_argument('--'+option,action='store_true')
+parser.add_argument('--offline-lifecycle-test',action='store_true')
 args = parser.parse_args()
 with open(args.config, encoding='utf-8') as f:
     cfg = json.load(f)
 
 with Client(cfg) as client:
+    if args.offline_lifecycle_test:
+        phase=Path(args.config+'.phase').read_text()
+        def export(suffix,operation): Path(args.config+suffix).write_text(json.dumps(client.offline_request(operation)),encoding='utf-8')
+        def import_file(fresh=False):
+            prefix='.fresh' if fresh else ''
+            client.import_offline(json.loads(Path(args.config+prefix+'.request.json').read_text()),json.loads(Path(args.config+prefix+'.response.json').read_text()))
+        def denied(callback):
+            try: callback()
+            except Exception: return
+            raise AssertionError('operation unexpectedly restored access')
+        def allowed(): assert client.check_feature('export') and client.status()['state']=='offline_valid', 'offline import did not publish offline access'
+        if phase=='export': export('.request.json','activate')
+        elif phase in ['import','retry']:
+            import_file()
+            if phase=='retry': import_file()
+            allowed()
+        elif phase=='fail_import':
+            denied(import_file);assert not client.check_feature('export') and not client.status()['allowed']
+        elif phase=='release':
+            import_file();export('.release.json','deactivate');assert not client.check_feature('export')
+        elif phase=='signedout':
+            denied(client.activate);denied(lambda:client.offline_request('activate'));denied(import_file);assert not client.check_feature('export')
+        elif phase=='logout':
+            import_file();result=client.logout();assert result['local_complete'] and not result['revocation_pending'] and not client.check_feature('export')
+        elif phase in ['old_export','renew_request']:
+            if phase=='old_export': denied(import_file);assert not client.check_feature('export')
+            export('.fresh.request.json','activate')
+            if phase=='renew_request': denied(import_file);assert not client.check_feature('export')
+        elif phase=='fresh_import':
+            import_file(True);allowed();denied(import_file);allowed();import_file(True);allowed()
+        else: raise AssertionError('unknown offline lifecycle phase')
+        print('Python: offline lifecycle phase passed',phase);raise SystemExit(0)
     if args.logout_wait:
         assert client.check_feature('export');Path(args.config+'.ready').write_text('ready')
         deadline=time.monotonic()+30
@@ -25,6 +59,65 @@ with Client(cfg) as client:
         assert client.logout()['local_complete'] and not client.check_feature('export');raise SystemExit(0)
     if args.logout_retry:
         client.retry_pending_logouts();assert not client.check_feature('export');print('Python: pending logout completed');raise SystemExit(0)
+    if args.metering_boundary_test:
+        client.activate();calls = [0]
+        def action(): calls[0] += 1
+        if args.metering_recover_test:
+            for _ in range(2): client.resolve_metered_feature('boundary-job', not args.expect_denied)
+        failed = False
+        try: client.run_metered_feature('export', 1, 'boundary-job', action)
+        except Exception: failed = True
+        expected_calls = 0 if args.metering_recover_test or args.expect_denied else 1
+        assert failed == args.expect_denied and calls[0] == expected_calls, 'SDK executed outside authorization or repeated business'
+        if args.metering_recover_test and args.expect_denied:
+            client.run_metered_feature('export', 1, 'replacement-job', action)
+            assert calls[0] == 1, 'cancellation did not release quota'
+        print('Python: execution boundary regression passed');raise SystemExit(0)
+    if args.metering_expired_cancel_test or args.metering_expired_commit_test:
+        calls = [0]
+        def action(): calls[0] += 1
+        def expect_failure(callback):
+            try: callback()
+            except Exception: return
+            raise AssertionError('expected operation failure')
+        if not args.metering_recover_test:
+            client.activate()
+            def business():
+                calls[0] += 1
+                if args.metering_expired_cancel_test: raise RuntimeError('expected business failure')
+            expect_failure(lambda: client.run_metered_feature('export', 1, 'expired-job', business))
+            assert calls[0] == 1
+        elif args.metering_expired_cancel_test:
+            for _ in range(2): client.resolve_metered_feature('expired-job', False)
+            expect_failure(lambda: client.resolve_metered_feature('expired-job', True))
+            expect_failure(lambda: client.run_metered_feature('export', 1, 'expired-job', action))
+            assert calls[0] == 0, 'canceled business repeated'
+            client.run_metered_feature('export', 1, 'replacement-job', action)
+            assert calls[0] == 1, 'expired cancellation did not release quota'
+        else:
+            expect_failure(lambda: client.run_metered_feature('export', 1, 'expired-job', action))
+            expect_failure(lambda: client.resolve_metered_feature('expired-job', True))
+            expect_failure(lambda: client.resolve_metered_feature('expired-job', False))
+            assert calls[0] == 0, 'completed business repeated'
+        print('Python: expired task regression passed');raise SystemExit(0)
+    if args.metering_jobs_test or args.metering_features_test or args.metering_denial_test:
+        client.activate()
+        calls = [0]
+        def action(): calls[0] += 1
+        if args.metering_jobs_test:
+            for job in ['ExportJob', 'exportjob', 'ExportJob']:
+                client.run_metered_feature('export', 1, job, action)
+            assert calls[0] == 2, 'distinct jobs were skipped or repeated'
+        elif args.metering_features_test:
+            for feature in ['export', 'Export']:
+                assert client.consume(feature, 1, feature+'-job')['used'] == 1, 'feature meters were combined'
+        else:
+            client.reserve('export', 1, 'pending-job')
+            failed = False
+            try: client.run_metered_feature('export', 1, 'pending-job', action)
+            except Exception: failed = True
+            assert failed and calls[0] == 0, 'pending job bypassed current authorization'
+        print('Python: metering regression passed');raise SystemExit(0)
     if args.improvements_test:
         client.start();one=client.reserve('export',1,'cancel-job')
         assert one['status']=='pending' and one['consumption']['used']==0 and one['consumption']['reserved']==1

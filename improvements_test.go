@@ -22,6 +22,15 @@ func TestHeartbeatDelayMinimum(t *testing.T) {
 	}
 }
 
+func TestHeartbeatDeadlineDelayDoesNotOverflow(t *testing.T) {
+	if got := heartbeatDeadlineDelay(600*time.Second, time.Duration(1<<63-1)); got != 600*time.Second {
+		t.Fatalf("permanent grant shortened heartbeat: %v", got)
+	}
+	if got := heartbeatDeadlineDelay(600*time.Second, 60*time.Second); got != 48*time.Second {
+		t.Fatalf("short grant was not refreshed early: %v", got)
+	}
+}
+
 func TestRetryAfterAndHTMLProxyFailure(t *testing.T) {
 	for _, status := range []int{429, 503} {
 		t.Run(http.StatusText(status), func(t *testing.T) {

@@ -27,6 +27,14 @@ func main() {
 	startup := flag.Bool("startup-test", false, "cached startup during slow network refresh")
 	logoutRetry := flag.Bool("logout-retry", false, "retry persisted device revocations without restoring access")
 	logoutWait := flag.Bool("logout-wait", false, "coordinate the shared-cache logout regression")
+	meteringJobs := flag.Bool("metering-jobs-test", false, "verify distinct metered job identifiers")
+	meteringFeatures := flag.Bool("metering-features-test", false, "verify independent case-sensitive feature meters")
+	meteringDenial := flag.Bool("metering-denial-test", false, "verify a pending job cannot bypass changed authorization")
+	expiredCancel := flag.Bool("metering-expired-cancel-test", false, "verify failed business with an expired reservation")
+	expiredCommit := flag.Bool("metering-expired-commit-test", false, "verify successful business is not repeated after expiry")
+	meteringRecover := flag.Bool("metering-recover-test", false, "recover the recorded metered operation after restart")
+	meteringBoundary := flag.Bool("metering-boundary-test", false, "verify permission and reservation deadlines at business execution")
+	offlineLifecycle := flag.Bool("offline-lifecycle-test", false, "verify offline login, logout and restart recovery")
 	flag.Parse()
 	b, e := os.ReadFile(*path)
 	if e != nil {
@@ -43,6 +51,10 @@ func main() {
 	defer c.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	if *offlineLifecycle {
+		runOfflineLifecycle(c, ctx, *path)
+		return
+	}
 	if *logoutWait {
 		if !c.CheckFeature("export") {
 			panic("missing initial authorization")
@@ -76,6 +88,107 @@ func main() {
 		return
 	}
 
+	if *meteringBoundary {
+		if _, err := c.Activate(ctx); err != nil {
+			panic(err)
+		}
+		calls := 0
+		action := func() error { calls++; return nil }
+		if *meteringRecover {
+			for range 2 {
+				if err := c.ResolveMeteredFeature(ctx, "boundary-job", !*expectDenied); err != nil {
+					panic(err)
+				}
+			}
+			err := c.RunMeteredFeature(ctx, "export", 1, "boundary-job", action)
+			if (err != nil) != *expectDenied || calls != 0 {
+				panic("recovery repeated business or changed its outcome")
+			}
+			if *expectDenied {
+				if err := c.RunMeteredFeature(ctx, "export", 1, "replacement-job", action); err != nil || calls != 1 {
+					panic("cancellation did not release quota")
+				}
+			}
+		} else {
+			err := c.RunMeteredFeature(ctx, "export", 1, "boundary-job", action)
+			want := 1
+			if *expectDenied {
+				want = 0
+			}
+			if (err != nil) != *expectDenied || calls != want {
+				panic(fmt.Sprintf("SDK executed outside authorization: calls=%d, error=%v", calls, err))
+			}
+		}
+		fmt.Println("Go: execution boundary regression passed")
+		return
+	}
+	if *expiredCancel || *expiredCommit {
+		calls := 0
+		action := func() error { calls++; return nil }
+		if !*meteringRecover {
+			if _, err := c.Activate(ctx); err != nil {
+				panic(err)
+			}
+			if err := c.RunMeteredFeature(ctx, "export", 1, "expired-job", func() error {
+				calls++
+				if *expiredCancel {
+					return fmt.Errorf("expected business failure")
+				}
+				return nil
+			}); err == nil || calls != 1 {
+				panic("business outcome was lost")
+			}
+		} else if *expiredCancel {
+			for range 2 {
+				if err := c.ResolveMeteredFeature(ctx, "expired-job", false); err != nil {
+					panic(err)
+				}
+			}
+			if c.ResolveMeteredFeature(ctx, "expired-job", true) == nil || c.RunMeteredFeature(ctx, "export", 1, "expired-job", action) == nil || calls != 0 {
+				panic("canceled business was repeated or its outcome flipped")
+			}
+			if err := c.RunMeteredFeature(ctx, "export", 1, "replacement-job", action); err != nil || calls != 1 {
+				panic("expired cancellation did not release quota")
+			}
+		} else if c.RunMeteredFeature(ctx, "export", 1, "expired-job", action) == nil || calls != 0 || c.ResolveMeteredFeature(ctx, "expired-job", true) == nil || c.ResolveMeteredFeature(ctx, "expired-job", false) == nil {
+			panic("completed business was repeated or its outcome flipped")
+		}
+		fmt.Println("Go: expired task regression passed")
+		return
+	}
+	if *meteringJobs || *meteringFeatures || *meteringDenial {
+		if _, err := c.Activate(ctx); err != nil {
+			panic(err)
+		}
+		calls := 0
+		action := func() error { calls++; return nil }
+		if *meteringJobs {
+			for _, job := range []string{"ExportJob", "exportjob", "ExportJob"} {
+				if err := c.RunMeteredFeature(ctx, "export", 1, job, action); err != nil {
+					panic(err)
+				}
+			}
+			if calls != 2 {
+				panic("distinct jobs were skipped or repeated")
+			}
+		} else if *meteringFeatures {
+			for _, feature := range []string{"export", "Export"} {
+				receipt, err := c.Consume(ctx, feature, 1, feature+"-job")
+				if err != nil || receipt.Used != 1 {
+					panic("feature meters were combined")
+				}
+			}
+		} else {
+			if _, err := c.Reserve(ctx, "export", 1, "pending-job"); err != nil {
+				panic(err)
+			}
+			if err := c.RunMeteredFeature(ctx, "export", 1, "pending-job", action); err == nil || calls != 0 {
+				panic("pending job bypassed current authorization")
+			}
+		}
+		fmt.Println("Go: metering regression passed")
+		return
+	}
 	if *improvements {
 		if _, err := c.Start(ctx, nil); err != nil {
 			panic(err)
@@ -312,4 +425,103 @@ func main() {
 		panic(e)
 	}
 	fmt.Println("Go: deactivated")
+}
+
+func runOfflineLifecycle(c *client.Client, ctx context.Context, path string) {
+	read := func(suffix string) []byte {
+		b, err := os.ReadFile(path + suffix)
+		if err != nil {
+			panic(err)
+		}
+		return b
+	}
+	write := func(suffix string, b []byte, err error) {
+		if err != nil {
+			panic(err)
+		}
+		if err := os.WriteFile(path+suffix, b, 0600); err != nil {
+			panic(err)
+		}
+	}
+	importFile := func(fresh bool) error {
+		prefix := ""
+		if fresh {
+			prefix = ".fresh"
+		}
+		_, err := c.ImportOffline(read(prefix+".request.json"), read(prefix+".response.json"))
+		return err
+	}
+	allowed := func() {
+		if !c.CheckFeature("export") || c.Status().State != "offline_valid" {
+			panic("offline import did not publish offline access")
+		}
+	}
+	phase := string(read(".phase"))
+	switch phase {
+	case "export":
+		b, err := c.OfflineRequest("activate")
+		write(".request.json", b, err)
+	case "import", "retry":
+		if err := importFile(false); err != nil {
+			panic(err)
+		}
+		if phase == "retry" {
+			if err := importFile(false); err != nil {
+				panic(err)
+			}
+		}
+		allowed()
+	case "fail_import":
+		if importFile(false) == nil || c.CheckFeature("export") || c.Status().Allowed {
+			panic("failed import granted protected access")
+		}
+	case "release":
+		if err := importFile(false); err != nil {
+			panic(err)
+		}
+		b, err := c.OfflineRequest("deactivate")
+		write(".release.json", b, err)
+		if c.CheckFeature("export") {
+			panic("offline release retained access")
+		}
+	case "signedout":
+		_, activationErr := c.Activate(ctx)
+		_, exportErr := c.OfflineRequest("activate")
+		if c.CheckFeature("export") || activationErr == nil || exportErr == nil || importFile(false) == nil {
+			panic("offline release did not survive restart")
+		}
+	case "logout":
+		if err := importFile(false); err != nil {
+			panic(err)
+		}
+		result, err := c.Logout(ctx)
+		if err != nil || !result.LocalComplete || result.RevocationPending || c.CheckFeature("export") {
+			panic("logout did not complete")
+		}
+	case "old_export", "renew_request":
+		if phase == "old_export" && (importFile(false) == nil || c.CheckFeature("export")) {
+			panic("old approval restored logged-out access")
+		}
+		b, err := c.OfflineRequest("activate")
+		write(".fresh.request.json", b, err)
+		if phase == "renew_request" && (importFile(false) == nil || c.CheckFeature("export")) {
+			panic("old approval replaced a newer request")
+		}
+	case "fresh_import":
+		if err := importFile(true); err != nil {
+			panic(err)
+		}
+		allowed()
+		if importFile(false) == nil {
+			panic("old approval rolled back a fresh login")
+		}
+		allowed()
+		if err := importFile(true); err != nil {
+			panic(err)
+		}
+		allowed()
+	default:
+		panic("unknown offline lifecycle phase")
+	}
+	fmt.Println("Go: offline lifecycle phase passed", phase)
 }

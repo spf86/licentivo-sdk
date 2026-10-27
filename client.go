@@ -161,13 +161,13 @@ func New(cfg Config) (*Client, error) {
 	c := &Client{cfg: cfg, profile: profile, sessionID: requestUUID(), keys: keys, http: &http.Client{Transport: transport, Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, heartbeat: 3600}
 	c.loadCredential()
 	c.loadLogoutJournal()
-	if c.denied.Load() {
+	if c.denied.Load() || c.logoutJournal.SignedOut {
 		c.auth = credentialState{}
 	}
 	if cfg.LicenseKey == "" && cfg.IdentityToken == "" && c.auth.DeviceKey == "" && !c.denied.Load() {
 		return nil, errors.New("enter a license key or temporary activation code")
 	}
-	if cfg.CachePath != "" && !c.denied.Load() {
+	if cfg.CachePath != "" && !c.denied.Load() && !c.logoutJournal.SignedOut {
 		if info, e := os.Stat(cfg.CachePath); e == nil && info.Size() <= lease.MaxSize {
 			if b, e := os.ReadFile(cfg.CachePath); e == nil {
 				var s cache
@@ -408,6 +408,9 @@ func (c *Client) requestExtra(ctx context.Context, op, activation, suppliedID st
 				final = apiErr
 				continue
 			}
+			if authorizationRejected(apiErr) {
+				c.invalidate()
+			}
 			return response{}, apiErr.Retryable, apiErr
 		}
 		return env.Data, false, nil
@@ -484,6 +487,9 @@ func (c *Client) StartHeartbeat(ctx context.Context, onError func(error)) error 
 			var jitter [1]byte
 			_, _ = rand.Read(jitter[:])
 			delay := heartbeatDelay(interval, jitter[0])
+			if claims, err := c.localClaims(); err == nil {
+				delay = heartbeatDeadlineDelay(delay, time.Until(time.Unix(claims.ExpiresAt, 0)))
+			}
 			if view := c.view.Load(); view != nil && view.retryAt.After(time.Now().Add(delay)) {
 				delay = time.Until(view.retryAt)
 			}

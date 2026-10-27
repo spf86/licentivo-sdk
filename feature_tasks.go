@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // A task journal stores identifiers and outcome, never business data or keys.
@@ -127,7 +128,14 @@ func (c *Client) RunMeteredFeature(ctx context.Context, feature string, quantity
 		_, _ = c.Cancel(ctx, hold.ID, operationID)
 		return err
 	}
-	if businessErr := action(); businessErr != nil {
+	// Network and journal I/O can outlive either permission. Check both at the
+	// business boundary, then preserve the failed outcome if either has expired.
+	if businessErr := c.RunFeature(feature, func() error {
+		if !hold.ExpiresAt.After(time.Now()) {
+			return errors.New("reservation expired; the business action was not run")
+		}
+		return action()
+	}); businessErr != nil {
 		task.State = "cancel_pending"
 		if err = saveFeatureTask(path, task); err == nil {
 			err = c.finishFeatureTask(ctx, path, task, false)
@@ -152,10 +160,16 @@ func (c *Client) finishFeatureTask(ctx context.Context, path string, task featur
 	if err != nil {
 		return fmt.Errorf("confirmation pending for operation %s; do not repeat business: %w", task.OperationID, err)
 	}
-	if succeeded && hold.Status != "committed" || !succeeded && hold.Status != "canceled" {
+	expected := "canceled"
+	if succeeded {
+		expected = "committed"
+	}
+	// Expiry releases an uncommitted hold just as cancellation does. Persist
+	// the business outcome so recovery does not retry an already released hold.
+	if hold.Status != expected && (succeeded || hold.Status != "expired") {
 		return errors.New("reservation closed without the requested outcome; do not repeat business")
 	}
-	task.State = hold.Status
+	task.State = expected
 	return saveFeatureTask(path, task)
 }
 

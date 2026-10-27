@@ -35,6 +35,35 @@ public sealed partial class LicentivoClient {
         try{await c.Start(onError,ct);return c;}catch{await c.DisposeAsync();throw;}
     }
     public async Task<JsonElement> Consume(string feature,long quantity,string operationID,CancellationToken ct=default){if(string.IsNullOrEmpty(operationID))throw new ArgumentException("retain operationID for retries");await mutex.WaitAsync(ct);try{var claims=Check();try{return (await Request("consume",claims.ActivationId,ct,operationID,new(){["feature"]=feature,["quantity"]=quantity})).GetProperty("consumption").Clone();}catch(ApiException e){if(new[]{"LICENSE_REVOKED","LICENSE_SUSPENDED","LICENSE_EXPIRED","DEVICE_RELEASED","DEVICE_CREDENTIAL_REVOKED"}.Contains(e.Code))Invalidate();Publish(false,e);throw;}}finally{mutex.Release();}}
-    public string OfflineRequest(string operation="activate"){mutex.Wait();try{PrepareCredential();if(operation!="activate"&&operation!="deactivate")throw new ArgumentException("invalid offline operation");string activation="";if(operation=="deactivate"){activation=Check().ActivationId;Invalidate();}var input=AccountBody(activation);input["version"]=1;input["request_id"]=Guid.NewGuid().ToString();input["created_at"]=Now;input["operation"]=operation;return JsonSerializer.Serialize(input,JsonOptions);}finally{mutex.Release();}}
-    public Claims ImportOffline(byte[] requestJSON,byte[] responseJSON){mutex.Wait();try{if(signedOut)throw new ApiException(403,"LAUNCH_LOGIN_REQUIRED");using var reqDoc=Parse(requestJSON);using var resDoc=Parse(responseJSON);var req=reqDoc.RootElement;var res=resDoc.RootElement;if(res.GetProperty("version").GetInt32()!=1||req.GetProperty("operation").GetString()!="activate"||res.GetProperty("operation").GetString()!="activate"||req.GetProperty("request_id").GetString()!=res.GetProperty("request_id").GetString()||req.GetProperty("product_id").GetString()!=config.ProductId||req.GetProperty("device_id").GetString()!=config.DeviceId||req.GetProperty("license_key").GetString()!=RuntimeKey)throw new CryptographicException("offline context mismatch");var result=res.GetProperty("result");var envelope=result.GetProperty("lease");var c=Verify(envelope,config.TrustedKeys,config.ProductId,config.DeviceId,Now);CheckContext(c);if(c.OfflineMode=="none"||c.OfflineRequestId!=req.GetProperty("request_id").GetString()||c.ActivationId!=result.GetProperty("activation_id").GetString())throw new CryptographicException("offline signature context mismatch");AcceptCredential(result);cached=envelope.Clone();wall=Now;tick=Stopwatch.GetTimestamp();interval=c.HeartbeatSeconds;Save();Publish(false,null);return c;}finally{mutex.Release();}}
+    public string OfflineRequest(string operation="activate"){
+        mutex.Wait();try{
+            if(signedOut)throw new InvalidOperationException("enter a new activation input before exporting an offline request");
+            if(operation!="activate"&&operation!="deactivate")throw new ArgumentException("invalid offline operation");
+            PrepareCredential();string activation=operation=="deactivate"?Check().ActivationId:"",id=Guid.NewGuid().ToString();
+            var input=AccountBody(activation);input["version"]=1;input["request_id"]=id;input["created_at"]=Now;input["operation"]=operation;
+            if(operation=="activate"){credential=credential! with{OfflineRequestId=id};credentialDirty=true;SaveCredential();if(logoutJournal.SignedOut){logoutJournal.OfflineRequestId=id;SaveLogout();}}
+            string request=JsonSerializer.Serialize(input,JsonOptions);
+            if(operation=="deactivate"){string failure=Deny(false);if(failure!="")throw new IOException(failure);}
+            return request;
+        }finally{mutex.Release();}
+    }
+    public Claims ImportOffline(byte[] requestJSON,byte[] responseJSON){
+        mutex.Wait();try{
+            if(signedOut)throw new ApiException(403,"LAUNCH_LOGIN_REQUIRED");
+            using var reqDoc=Parse(requestJSON);using var resDoc=Parse(responseJSON);var req=reqDoc.RootElement;var res=resDoc.RootElement;
+            string key=req.GetProperty("license_key").GetString()??"",id=req.GetProperty("request_id").GetString()??"";
+            string token=OptionalText(req,"identity_token"),source=token!=""?token:key;
+            bool sameInput=key==RuntimeKey&&(token==""||token==config.IdentityToken);
+            bool sameSource=source!=""&&(sameInput||credential is {DeviceKey.Length: >0}&&Hash(source)==credential.SourceHash);
+            if(res.GetProperty("version").GetInt32()!=1||req.GetProperty("operation").GetString()!="activate"||res.GetProperty("operation").GetString()!="activate"||id!=res.GetProperty("request_id").GetString()||req.GetProperty("product_id").GetString()!=config.ProductId||req.GetProperty("device_id").GetString()!=config.DeviceId||!sameSource)throw new CryptographicException("offline context mismatch");
+            string current=credential?.OfflineRequestId??"";
+            if(current==""||logoutJournal.SignedOut)current=logoutJournal.OfflineRequestId;
+            if(current!=""&&current!=id||logoutJournal.SignedOut&&current=="")throw new CryptographicException("offline approval is no longer current; generate a fresh request");
+            var result=res.GetProperty("result");var envelope=result.GetProperty("lease");var c=Verify(envelope,config.TrustedKeys,config.ProductId,config.DeviceId,Now);CheckContext(c);
+            if(c.OfflineMode=="none"||c.OfflineRequestId!=id||c.ActivationId!=result.GetProperty("activation_id").GetString())throw new CryptographicException("offline signature context mismatch");
+            AcceptCredential(result);PrepareCredential();credential=credential! with{OfflineRequestId=id};credentialDirty=true;SaveCredential();
+            cached=envelope.Clone();wall=Now;tick=Stopwatch.GetTimestamp();interval=c.HeartbeatSeconds;
+            try{Save();}catch{Invalidate();throw;}Publish(false,null);return c;
+        }finally{mutex.Release();}
+    }
 }

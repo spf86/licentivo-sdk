@@ -13,6 +13,7 @@ public sealed partial class LicentivoClient {
         public string SourceHash {get;set;}="";
         public string BindingKey {get;set;}="";
         public bool SignedOut {get;set;}
+        public string OfflineRequestId {get;set;}="";
         public List<LogoutTicket> Pending {get;set;}=[];
     }
     private volatile bool signedOut;
@@ -25,6 +26,7 @@ public sealed partial class LicentivoClient {
     private static string LogoutBinding(LogoutTicket? t)=>t is null?"":t.ActivationId+":"+t.ExpectedGeneration;
     private static string LogoutScope(LogoutJournal j)=>j.SourceHash+"\n"+j.BindingKey;
     private static bool ExplicitRevocation(Exception error)=>error is ApiException e&&new[]{"LICENSE_REVOKED","LICENSE_SUSPENDED","LICENSE_EXPIRED","DEVICE_RELEASED","DEVICE_NOT_ACTIVE","DEVICE_CREDENTIAL_REVOKED","DEVICE_CREDENTIAL_INVALID","AUTHORIZATION_SESSION_REVOKED","AUTHORIZATION_SESSION_EXPIRED","LAUNCH_LOGIN_REQUIRED","LAUNCH_ENTITLEMENT_REVOKED","LAUNCH_ENTITLEMENT_EXPIRED"}.Contains(e.Code);
+    private static bool AuthorizationRejected(Exception error)=>ExplicitRevocation(error)||error is ApiException e&&new[]{"PRODUCT_DISABLED","TENANT_SUSPENDED","LICENSE_INVALID","DEVICE_CREDENTIAL_MISMATCH","LAUNCH_ENVIRONMENT_MISMATCH","SESSION_EXPIRED","VERSION_NOT_ENTITLED","VERSION_NOT_PUBLISHED","MAINTENANCE_EXPIRED","MAINTENANCE_STATE_INVALID","FEATURE_NOT_ENTITLED","HARDWARE_ID_REQUIRED","VIRTUAL_MACHINE_NOT_ALLOWED","SDK_UPGRADE_REQUIRED","LAUNCH_POLICY_UNSUPPORTED","RUNTIME_WINDOW_INVALID"}.Contains(e.Code);
     private void LoadLogout(){
         var records=new Dictionary<string,LogoutJournal>();
         void Read(string path){try{
@@ -41,7 +43,7 @@ public sealed partial class LicentivoClient {
             foreach(var ticket in j.Pending)tickets[ticket.OperationId]=ticket;
         }
         logoutJournal.Pending=tickets.Values.ToList();
-        if(signedOut)credential=null;
+        if(signedOut||logoutJournal.SignedOut)credential=null;
     }
     private void SaveLogout(){
         logoutJournal.Revision=Math.Max(logoutJournal.Revision+1,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
@@ -59,11 +61,12 @@ public sealed partial class LicentivoClient {
             if(j.Pending.RemoveAll(t=>t.OperationId==operation)>0)WriteLogout(path,j);
         }
     }
-    private string Deny(){
+    private string Deny(bool queueRelease=true){
         signedOut=true;
         if(config.LicenseKey!=""||config.IdentityToken!=""||credential is not null)logoutJournal.SourceHash=CacheHash;
         logoutJournal.SignedOut=true;
-        if(credential?.LogoutTicket is { } raw){var ticket=raw.Deserialize<LogoutTicket>(JsonOptions);if(ticket is not null){logoutJournal.BindingKey=LogoutBinding(ticket);logoutBindings.Add(logoutJournal.BindingKey);if(!logoutJournal.Pending.Any(p=>p.OperationId==ticket.OperationId))logoutJournal.Pending.Add(ticket);}}
+        logoutJournal.OfflineRequestId="";
+        if(credential?.LogoutTicket is { } raw){var ticket=raw.Deserialize<LogoutTicket>(JsonOptions);if(ticket is not null){logoutJournal.BindingKey=LogoutBinding(ticket);logoutBindings.Add(logoutJournal.BindingKey);if(queueRelease&&!logoutJournal.Pending.Any(p=>p.OperationId==ticket.OperationId))logoutJournal.Pending.Add(ticket);}}
         string failure="";try{SaveLogout();}catch(IOException){failure="LOCAL_CREDENTIAL_CLEANUP_FAILED";}catch(UnauthorizedAccessException){failure="LOCAL_CREDENTIAL_CLEANUP_FAILED";}
         Invalidate();heartbeatCts?.Cancel();credential=null;credentialDirty=false;config=config with{LicenseKey="",IdentityToken=""};
         StartLogoutRecovery();return failure;

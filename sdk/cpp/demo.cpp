@@ -14,6 +14,72 @@ int main(int argc, char **argv) {
         for (int i = 1; i < argc; i++) if (std::string(argv[i]) == "--cache-test") cacheTest = true;
         {
             licentivo::Client client(path);
+            for(int i=1;i<argc;i++)if(std::string(argv[i])=="--offline-lifecycle-test"){
+                const auto phase=readText(path+".phase");
+                auto importFile=[&](bool fresh=false){const std::string prefix=fresh?".fresh":"";client.ImportOffline(readText(path+prefix+".request.json"),readText(path+prefix+".response.json"));};
+                auto exportFile=[&](const std::string&suffix,const std::string&operation){std::ofstream file(path+suffix);file<<client.OfflineRequest(operation);if(!file)throw std::runtime_error("offline export write failed");};
+                auto reject=[](const std::function<void()>&action){try{action();}catch(const std::exception&){return;}throw std::runtime_error("operation unexpectedly restored access");};
+                auto allowed=[&](){cJSON*state=cJSON_Parse(client.Status().c_str());const cJSON*name=cJSON_GetObjectItemCaseSensitive(state,"state");bool ok=client.CheckFeature("export")&&cJSON_IsString(name)&&std::string(name->valuestring)=="offline_valid";cJSON_Delete(state);if(!ok)throw std::runtime_error("offline import did not publish offline access");};
+                if(phase=="export")exportFile(".request.json","activate");
+                else if(phase=="import"||phase=="retry"){importFile();if(phase=="retry")importFile();allowed();}
+                else if(phase=="fail_import"){reject([&](){importFile();});if(client.CheckFeature("export"))throw std::runtime_error("failed import granted protected access");}
+                else if(phase=="release"){importFile();exportFile(".release.json","deactivate");if(client.CheckFeature("export"))throw std::runtime_error("offline release retained access");}
+                else if(phase=="signedout"){reject([&](){client.Activate();});reject([&](){client.OfflineRequest();});reject([&](){importFile();});if(client.CheckFeature("export"))throw std::runtime_error("offline release did not survive restart");}
+                else if(phase=="logout"){importFile();client.Logout();if(client.LogoutPending()||client.CheckFeature("export"))throw std::runtime_error("logout did not complete");}
+                else if(phase=="old_export"||phase=="renew_request"){
+                    if(phase=="old_export"){reject([&](){importFile();});if(client.CheckFeature("export"))throw std::runtime_error("old approval restored logged-out access");}
+                    exportFile(".fresh.request.json","activate");
+                    if(phase=="renew_request"){reject([&](){importFile();});if(client.CheckFeature("export"))throw std::runtime_error("old approval replaced a newer request");}
+                }else if(phase=="fresh_import"){importFile(true);allowed();reject([&](){importFile();});allowed();importFile(true);allowed();}
+                else throw std::runtime_error("unknown offline lifecycle phase");
+                std::cout<<"C++: offline lifecycle phase passed "<<phase<<std::endl;return 0;
+            }
+            bool meteringRecover=false;for(int i=1;i<argc;i++)if(std::string(argv[i])=="--metering-recover-test")meteringRecover=true;
+            bool meteringDenied=false;for(int i=1;i<argc;i++)if(std::string(argv[i])=="--expect-denied")meteringDenied=true;
+            for(int i=1;i<argc;i++)if(std::string(argv[i])=="--metering-boundary-test"){
+                client.Activate();int calls=0;auto action=[&calls](){calls++;};
+                if(meteringRecover)for(int j=0;j<2;j++)client.ResolveMeteredFeature("boundary-job",!meteringDenied);
+                bool failed=false;try{client.RunMeteredFeature("export",1,"boundary-job",action);}catch(const std::exception&){failed=true;}
+                if(failed!=meteringDenied||calls!=(meteringRecover||meteringDenied?0:1))throw std::runtime_error("SDK executed outside authorization or repeated business");
+                if(meteringRecover&&meteringDenied){client.RunMeteredFeature("export",1,"replacement-job",action);if(calls!=1)throw std::runtime_error("cancellation did not release quota");}
+                std::cout<<"C++: execution boundary regression passed"<<std::endl;return 0;
+            }
+            for(int i=1;i<argc;i++)if(std::string(argv[i])=="--metering-expired-cancel-test"||std::string(argv[i])=="--metering-expired-commit-test"){
+                bool cancel=std::string(argv[i])=="--metering-expired-cancel-test";int calls=0;auto action=[&calls](){calls++;};
+                auto expectFailure=[](const std::function<void()>&callback){try{callback();}catch(const std::exception&){return;}throw std::runtime_error("expected operation failure");};
+                if(!meteringRecover){
+                    client.Activate();
+                    expectFailure([&](){client.RunMeteredFeature("export",1,"expired-job",[&](){calls++;if(cancel)throw std::runtime_error("expected business failure");});});
+                    if(calls!=1)throw std::runtime_error("business outcome was lost");
+                }else if(cancel){
+                    for(int j=0;j<2;j++)client.ResolveMeteredFeature("expired-job",false);
+                    expectFailure([&](){client.ResolveMeteredFeature("expired-job",true);});
+                    expectFailure([&](){client.RunMeteredFeature("export",1,"expired-job",action);});
+                    if(calls!=0)throw std::runtime_error("canceled business repeated");
+                    client.RunMeteredFeature("export",1,"replacement-job",action);
+                    if(calls!=1)throw std::runtime_error("expired cancellation did not release quota");
+                }else{
+                    expectFailure([&](){client.RunMeteredFeature("export",1,"expired-job",action);});
+                    expectFailure([&](){client.ResolveMeteredFeature("expired-job",true);});
+                    expectFailure([&](){client.ResolveMeteredFeature("expired-job",false);});
+                    if(calls!=0)throw std::runtime_error("completed business repeated");
+                }
+                std::cout<<"C++: expired task regression passed"<<std::endl;return 0;
+            }
+            for(int i=1;i<argc;i++)if(std::string(argv[i]).rfind("--metering-",0)==0){
+                client.Activate();int calls=0;auto action=[&calls](){calls++;};
+                if(std::string(argv[i])=="--metering-jobs-test"){
+                    for(const auto&job:{"ExportJob","exportjob","ExportJob"})client.RunMeteredFeature("export",1,job,action);
+                    if(calls!=2)throw std::runtime_error("distinct jobs were skipped or repeated");
+                }else if(std::string(argv[i])=="--metering-features-test"){
+                    for(const auto&feature:{"export","Export"})usedIs(client.Consume(feature,1,std::string(feature)+"-job"),1,0);
+                }else{
+                    client.Reserve("export",1,"pending-job");bool failed=false;
+                    try{client.RunMeteredFeature("export",1,"pending-job",action);}catch(const std::exception&){failed=true;}
+                    if(!failed||calls!=0)throw std::runtime_error("pending job bypassed current authorization");
+                }
+                std::cout<<"C++: metering regression passed"<<std::endl;return 0;
+            }
             for(int i=1;i<argc;i++)if(std::string(argv[i])=="--logout-wait"){
                 if(!client.CheckFeature("export"))throw std::runtime_error("missing initial authorization");{std::ofstream ready(path+".ready");ready<<"ready";if(!ready)throw std::runtime_error("write failed");}
                 auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);while(!std::ifstream(path+".continue")){if(std::chrono::steady_clock::now()>deadline)throw std::runtime_error("logout wait timed out");std::this_thread::sleep_for(std::chrono::milliseconds(10));}

@@ -128,6 +128,30 @@ func (c *Client) FeatureStatus(feature string) Status {
 func heartbeatDelay(interval int, jitter byte) time.Duration {
 	return time.Duration(float64(max(600, interval)) * (1 + float64(jitter)/255*.1) * float64(time.Second))
 }
+
+// Shortened grants (for example a nearly expired login) must refresh before
+// their signed deadline even when the configured heartbeat is much longer.
+func heartbeatDeadlineDelay(delay, remaining time.Duration) time.Duration {
+	if remaining > 0 {
+		return min(delay, max(time.Second, remaining-remaining/5))
+	}
+	return delay
+}
+
+func authorizationRejected(err error) bool {
+	if explicitRevocation(err) {
+		return true
+	}
+	var e *APIError
+	if !errors.As(err, &e) {
+		return false
+	}
+	switch e.Code {
+	case "PRODUCT_DISABLED", "TENANT_SUSPENDED", "LICENSE_INVALID", "DEVICE_CREDENTIAL_MISMATCH", "LAUNCH_ENVIRONMENT_MISMATCH", "SESSION_EXPIRED", "VERSION_NOT_ENTITLED", "VERSION_NOT_PUBLISHED", "MAINTENANCE_EXPIRED", "MAINTENANCE_STATE_INVALID", "FEATURE_NOT_ENTITLED", "HARDWARE_ID_REQUIRED", "VIRTUAL_MACHINE_NOT_ALLOWED", "SDK_UPGRADE_REQUIRED", "LAUNCH_POLICY_UNSUPPORTED", "RUNTIME_WINDOW_INVALID":
+		return true
+	}
+	return false
+}
 func waitHeartbeat(ctx context.Context, delay time.Duration) bool {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()

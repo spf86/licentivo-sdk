@@ -4,6 +4,27 @@ var cfgPath = args.Length > 1 && args[0] == "--config" ? args[1] : ".local/proto
 var cfg = JsonSerializer.Deserialize<Config>(File.ReadAllText(cfgPath), LicentivoClient.JsonOptions)!;
 bool cacheTest = args.Contains("--cache-test");
 await using (var client = new LicentivoClient(cfg)) {
+    if(args.Contains("--offline-lifecycle-test")){
+        string phase=File.ReadAllText(cfgPath+".phase");
+        void Import(bool fresh=false){string prefix=fresh?".fresh":"";client.ImportOffline(File.ReadAllBytes(cfgPath+prefix+".request.json"),File.ReadAllBytes(cfgPath+prefix+".response.json"));}
+        void Reject(Action action){try{action();}catch(Exception){return;}throw new Exception("operation unexpectedly restored access");}
+        void Allowed(){if(!client.CheckFeature("export")||client.Status().State!="offline_valid")throw new Exception("offline import did not publish offline access");}
+        switch(phase){
+            case "export":File.WriteAllText(cfgPath+".request.json",client.OfflineRequest());break;
+            case "import":case "retry":Import();if(phase=="retry")Import();Allowed();break;
+            case "fail_import":Reject(()=>Import());if(client.CheckFeature("export")||client.Status().Allowed)throw new Exception("failed import granted protected access");break;
+            case "release":Import();File.WriteAllText(cfgPath+".release.json",client.OfflineRequest("deactivate"));if(client.CheckFeature("export"))throw new Exception("offline release retained access");break;
+            case "signedout":bool failed=false;try{await client.Activate();}catch(Exception){failed=true;}if(!failed)throw new Exception("signed-out credential reactivated");Reject(()=>client.OfflineRequest());Reject(()=>Import());if(client.CheckFeature("export"))throw new Exception("offline release did not survive restart");break;
+            case "logout":Import();var result=await client.Logout();if(!result.LocalComplete||result.RevocationPending||client.CheckFeature("export"))throw new Exception("logout did not complete");break;
+            case "old_export":case "renew_request":
+                if(phase=="old_export"){Reject(()=>Import());if(client.CheckFeature("export"))throw new Exception("old approval restored logged-out access");}
+                File.WriteAllText(cfgPath+".fresh.request.json",client.OfflineRequest());
+                if(phase=="renew_request"){Reject(()=>Import());if(client.CheckFeature("export"))throw new Exception("old approval replaced a newer request");}break;
+            case "fresh_import":Import(true);Allowed();Reject(()=>Import());Allowed();Import(true);Allowed();break;
+            default:throw new Exception("unknown offline lifecycle phase");
+        }
+        Console.WriteLine("C#: offline lifecycle phase passed "+phase);return;
+    }
     if(args.Contains("--logout-wait")){
         if(!client.CheckFeature("export"))throw new Exception("missing initial authorization");File.WriteAllText(cfgPath+".ready","ready");var deadline=DateTime.UtcNow.AddSeconds(30);
         while(!File.Exists(cfgPath+".continue")){if(DateTime.UtcNow>deadline)throw new Exception("logout wait timed out");await Task.Delay(10);}
@@ -11,6 +32,51 @@ await using (var client = new LicentivoClient(cfg)) {
         if(expectFailure){bool rejected=false;try{await client.Deactivate();}catch(IOException){rejected=true;}if(!rejected)throw new Exception("deactivate hid persistence failure");}return;
     }
     if(args.Contains("--logout-retry")){await client.RetryPendingLogouts();if(client.CheckFeature("export"))throw new Exception("logout restored access");Console.WriteLine("C#: pending logout completed");return;}
+    if(args.Contains("--metering-boundary-test")) {
+        await client.Activate();int calls=0;bool denied=args.Contains("--expect-denied"),recover=args.Contains("--metering-recover-test");Func<Task> action=()=>{calls++;return Task.CompletedTask;};
+        if(recover)for(int i=0;i<2;i++)await client.ResolveMeteredFeature("boundary-job",!denied);
+        bool failed=false;try{await client.RunMeteredFeature("export",1,"boundary-job",action);}catch(Exception){failed=true;}
+        if(failed!=denied||calls!=(recover||denied?0:1))throw new Exception("SDK executed outside authorization or repeated business");
+        if(recover&&denied){await client.RunMeteredFeature("export",1,"replacement-job",action);if(calls!=1)throw new Exception("cancellation did not release quota");}
+        Console.WriteLine("C#: execution boundary regression passed");return;
+    }
+    if(args.Contains("--metering-expired-cancel-test")||args.Contains("--metering-expired-commit-test")) {
+        bool cancel=args.Contains("--metering-expired-cancel-test"),recover=args.Contains("--metering-recover-test");int calls=0;
+        async Task ExpectFailure(Func<Task> action){try{await action();}catch(Exception){return;}throw new Exception("expected operation failure");}
+        Task Action(){calls++;return Task.CompletedTask;}
+        if(!recover){
+            await client.Activate();
+            await ExpectFailure(()=>client.RunMeteredFeature("export",1,"expired-job",()=>{calls++;if(cancel)throw new Exception("expected business failure");return Task.CompletedTask;}));
+            if(calls!=1)throw new Exception("business outcome was lost");
+        }else if(cancel){
+            for(int i=0;i<2;i++)await client.ResolveMeteredFeature("expired-job",false);
+            await ExpectFailure(()=>client.ResolveMeteredFeature("expired-job",true));
+            await ExpectFailure(()=>client.RunMeteredFeature("export",1,"expired-job",Action));
+            if(calls!=0)throw new Exception("canceled business repeated");
+            await client.RunMeteredFeature("export",1,"replacement-job",Action);
+            if(calls!=1)throw new Exception("expired cancellation did not release quota");
+        }else{
+            await ExpectFailure(()=>client.RunMeteredFeature("export",1,"expired-job",Action));
+            await ExpectFailure(()=>client.ResolveMeteredFeature("expired-job",true));
+            await ExpectFailure(()=>client.ResolveMeteredFeature("expired-job",false));
+            if(calls!=0)throw new Exception("completed business repeated");
+        }
+        Console.WriteLine("C#: expired task regression passed");return;
+    }
+    if(args.Any(arg=>arg.StartsWith("--metering-",StringComparison.Ordinal))) {
+        await client.Activate();int calls=0;Func<Task> action=()=>{calls++;return Task.CompletedTask;};
+        if(args.Contains("--metering-jobs-test")) {
+            foreach(var job in new[]{"ExportJob","exportjob","ExportJob"})await client.RunMeteredFeature("export",1,job,action);
+            if(calls!=2)throw new Exception("distinct jobs were skipped or repeated");
+        } else if(args.Contains("--metering-features-test")) {
+            foreach(var feature in new[]{"export","Export"})if((await client.Consume(feature,1,feature+"-job")).GetProperty("used").GetInt64()!=1)throw new Exception("feature meters were combined");
+        } else {
+            await client.Reserve("export",1,"pending-job");bool failed=false;
+            try{await client.RunMeteredFeature("export",1,"pending-job",action);}catch(Exception){failed=true;}
+            if(!failed||calls!=0)throw new Exception("pending job bypassed current authorization");
+        }
+        Console.WriteLine("C#: metering regression passed");return;
+    }
     if(args.Contains("--improvements-test")) {
         await client.Start();var one=await client.Reserve("export",1,"cancel-job");if(one.Status!="pending"||one.Consumption.Used!=0||one.Consumption.Reserved!=1)throw new Exception("reserve failed");var canceled=await client.Cancel(one.ReservationId,"cancel-job");if(canceled.Status!="canceled"||canceled.Consumption.Used!=0)throw new Exception("cancel charged usage");
         var two=await client.Reserve("export",1,"commit-job");for(int i=0;i<2;i++){var done=await client.Commit(two.ReservationId,"commit-job");if(done.Status!="committed"||done.Consumption.Used!=1)throw new Exception("duplicate commit");}

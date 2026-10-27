@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)][ValidateSet('go','python','javascript','java','csharp','c','cpp','rust','ruby')][string]$Language,
-    [string]$Version='0.11.3',
+    [string]$Version='0.11.4',
     [string]$Destination='.licentivo-sdk',
     [string]$Project='',
     [string]$PythonExe='python',
@@ -10,7 +10,7 @@ param(
     [switch]$DownloadOnly
 )
 $ErrorActionPreference='Stop'
-if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Use a release version such as 0.11.3.' }
+if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Use a release version such as 0.11.4.' }
 function Checked { param([string]$File,[string[]]$Arguments); & $File @Arguments; if ($LASTEXITCODE -ne 0) { throw "Command failed: $File" } }
 # Normal online installation uses public registries. PackageDirectory is reserved
 # for release verification and explicitly prepared offline binary packages.

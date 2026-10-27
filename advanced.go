@@ -191,6 +191,9 @@ func (c *Client) OfflineRequest(operation string) ([]byte, error) {
 	if operation != "activate" && operation != "deactivate" {
 		return nil, errors.New("operation must be activate or deactivate")
 	}
+	if c.denied.Load() {
+		return nil, errors.New("enter a new activation input before exporting an offline request")
+	}
 	if err := c.prepareCredential(); err != nil {
 		return nil, err
 	}
@@ -201,14 +204,38 @@ func (c *Client) OfflineRequest(operation string) ([]byte, error) {
 			return nil, err
 		}
 		activation = claims.ActivationID
-		c.invalidate()
 	}
 	in := c.runtimeBody(activation)
 	in["version"] = 1
-	in["request_id"] = requestUUID()
+	requestID := requestUUID()
+	in["request_id"] = requestID
 	in["created_at"] = time.Now().Unix()
 	in["operation"] = operation
-	return json.MarshalIndent(in, "", "  ")
+	if operation == "activate" {
+		c.auth.OfflineRequestID, c.authDirty = requestID, true
+		if err := c.saveCredential(); err != nil {
+			return nil, err
+		}
+		if c.logoutJournal.SignedOut {
+			c.logoutJournal.OfflineRequestID = requestID
+			if err := c.saveLogoutJournal(); err != nil {
+				return nil, err
+			}
+		}
+	}
+	request, err := json.MarshalIndent(in, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	if operation == "deactivate" {
+		if err := c.denyBindingLocked(false); err != nil {
+			return nil, err
+		}
+		if c.cancel != nil {
+			c.cancel()
+		}
+	}
+	return request, nil
 }
 
 // ImportOffline verifies the signature and original request ID before accepting the response.
@@ -219,11 +246,12 @@ func (c *Client) ImportOffline(request, responseJSON []byte) (lease.Claims, erro
 		return lease.Claims{}, &APIError{Code: "LAUNCH_LOGIN_REQUIRED"}
 	}
 	var req struct {
-		RequestID  string `json:"request_id"`
-		ProductID  string `json:"product_id"`
-		DeviceID   string `json:"device_id"`
-		LicenseKey string `json:"license_key"`
-		Operation  string `json:"operation"`
+		RequestID     string `json:"request_id"`
+		ProductID     string `json:"product_id"`
+		DeviceID      string `json:"device_id"`
+		LicenseKey    string `json:"license_key"`
+		IdentityToken string `json:"identity_token"`
+		Operation     string `json:"operation"`
 	}
 	if err := json.Unmarshal(request, &req); err != nil {
 		return lease.Claims{}, err
@@ -237,8 +265,23 @@ func (c *Client) ImportOffline(request, responseJSON []byte) (lease.Claims, erro
 	if err := lease.Decode(responseJSON, &res); err != nil {
 		return lease.Claims{}, err
 	}
-	if res.Version != 1 || res.Operation != "activate" || req.Operation != "activate" || req.ProductID != c.cfg.ProductID || req.DeviceID != c.cfg.DeviceID || req.LicenseKey != c.runtimeKey() || req.RequestID != res.RequestID || res.Result.Lease == nil {
+	// A previous attempt may have saved the device credential before the lease.
+	// Its recorded source still identifies the original offline activation input.
+	requestSource := req.LicenseKey
+	if req.IdentityToken != "" {
+		requestSource = req.IdentityToken
+	}
+	sameInput := req.LicenseKey == c.runtimeKey() && (req.IdentityToken == "" || req.IdentityToken == c.cfg.IdentityToken)
+	sameSource := requestSource != "" && (sameInput || c.auth.DeviceKey != "" && licenseHash(requestSource) == c.auth.SourceHash)
+	if res.Version != 1 || res.Operation != "activate" || req.Operation != "activate" || req.ProductID != c.cfg.ProductID || req.DeviceID != c.cfg.DeviceID || !sameSource || req.RequestID != res.RequestID || res.Result.Lease == nil {
 		return lease.Claims{}, errors.New("offline response context mismatch")
+	}
+	currentRequest := c.auth.OfflineRequestID
+	if currentRequest == "" || c.logoutJournal.SignedOut {
+		currentRequest = c.logoutJournal.OfflineRequestID
+	}
+	if currentRequest != "" && currentRequest != req.RequestID || c.logoutJournal.SignedOut && currentRequest == "" {
+		return lease.Claims{}, errors.New("offline approval is no longer current; generate a fresh request")
 	}
 	claims, err := lease.Verify(*res.Result.Lease, c.keys, c.cfg.ProductID, c.cfg.DeviceID, time.Now())
 	if err != nil {
@@ -256,10 +299,26 @@ func (c *Client) ImportOffline(request, responseJSON []byte) (lease.Claims, erro
 	if err = c.acceptCredential(res.Result); err != nil {
 		return claims, err
 	}
+	if err = c.prepareCredential(); err != nil {
+		return claims, err
+	}
+	if c.auth.OfflineRequestID != req.RequestID {
+		c.auth.OfflineRequestID, c.authDirty = req.RequestID, true
+		if err = c.saveCredential(); err != nil {
+			return claims, err
+		}
+	}
 	c.state = cache{1, c.cacheLicenseHash(), *res.Result.Lease, time.Now().Unix()}
 	c.lastWall = time.Now()
 	c.lastTick = time.Now()
-	c.heartbeat = claims.RuntimePolicy.HeartbeatSeconds
+	c.heartbeat = 3600
+	if claims.RuntimePolicy != nil {
+		c.heartbeat = claims.RuntimePolicy.HeartbeatSeconds
+	}
+	if err = c.save(); err != nil {
+		c.invalidate()
+		return claims, err
+	}
 	c.publish(false, nil)
-	return claims, c.save()
+	return claims, nil
 }

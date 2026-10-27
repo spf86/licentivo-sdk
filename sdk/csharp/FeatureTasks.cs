@@ -45,7 +45,7 @@ public sealed partial class LicentivoClient
         try { hold = succeeded ? await Commit(task.ReservationId, task.OperationId, ct) : await Cancel(task.ReservationId, task.OperationId, ct); }
         catch (Exception error) { throw new IOException($"confirmation pending for operation {task.OperationId}; do not repeat business", error); }
         var expected = succeeded ? "committed" : "canceled";
-        if (hold.Status != expected) throw new InvalidOperationException("reservation closed without requested outcome; do not repeat business");
+        if (hold.Status != expected && (succeeded || hold.Status != "expired")) throw new InvalidOperationException("reservation closed without requested outcome; do not repeat business");
         SaveTask(path, task with { State = expected });
     }
     /// <summary>Reserve, run the business callback, then commit/cancel. A pending commit never reruns business.</summary>
@@ -73,7 +73,10 @@ public sealed partial class LicentivoClient
             task = task with { ReservationId = hold.ReservationId, State = "business_running" };
             try { SaveTask(path, task); }
             catch { try { await Cancel(hold.ReservationId, operationID, ct); } catch { } throw; }
-            try { await action(); }
+            try { await RunFeature(feature, async () => {
+                if (hold.ExpiresAt <= DateTimeOffset.UtcNow) throw new InvalidOperationException("reservation expired; business was not run");
+                await action();
+            }); }
             catch
             {
                 task = task with { State = "cancel_pending" };

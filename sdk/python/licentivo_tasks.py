@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -42,7 +43,7 @@ def _finish(client, path, task, succeeded):
     except Exception as error:
         raise RuntimeError(f"confirmation pending for operation {task['operation_id']}; do not repeat business") from error
     expected = 'committed' if succeeded else 'canceled'
-    if result['status'] != expected:
+    if result['status'] != expected and (succeeded or result['status'] != 'expired'):
         raise RuntimeError('reservation closed without the requested outcome; do not repeat business')
     task['state'] = expected
     _save(path, task)
@@ -79,7 +80,12 @@ def run(client, feature, quantity, operation_id, action):
             try: client.cancel(hold['reservation_id'], operation_id)
             except Exception: pass
             raise
-        try: action()
+        def authorized_action():
+            deadline = datetime.fromisoformat(hold['expires_at'].replace('Z', '+00:00'))
+            if deadline.tzinfo is None or deadline <= datetime.now(timezone.utc):
+                raise RuntimeError('reservation expired; business was not run')
+            return action()
+        try: client.run_feature(feature, authorized_action)
         except Exception:
             task['state'] = 'cancel_pending'
             try: _save(path, task); _finish(client, path, task, False)

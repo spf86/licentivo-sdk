@@ -24,7 +24,7 @@ async function finish(client,path,task,succeeded) {
   try{receipt=await (succeeded?client.commit(task.reservation_id,task.operation_id):client.cancel(task.reservation_id,task.operation_id));}
   catch(error){throw Error(`confirmation pending for operation ${task.operation_id}; do not repeat business`,{cause:error});}
   const expected=succeeded?'committed':'canceled';
-  if(receipt.status!==expected)throw Error('reservation closed without the requested outcome; do not repeat business');
+  if(receipt.status!==expected && (succeeded || receipt.status!=='expired'))throw Error('reservation closed without the requested outcome; do not repeat business');
   task.state=expected;save(path,task);
 }
 export async function runMetered(client,feature,quantity,id,action) {
@@ -47,7 +47,11 @@ export async function runMetered(client,feature,quantity,id,action) {
     if(hold.status!=='pending')throw Error('reservation is closed; business was not run');
     Object.assign(task,{reservation_id:hold.reservation_id,state:'business_running'});
     try{save(path,task);}catch(error){try{await client.cancel(hold.reservation_id,id);}catch{}throw error;}
-    try{await action();}catch(error){task.state='cancel_pending';try{save(path,task);await finish(client,path,task,false);}catch{}throw error;}
+    try{await client.runFeature(feature,async()=>{
+      const deadline=Date.parse(hold.expires_at);
+      if(!Number.isFinite(deadline) || deadline<=Date.now())throw Error('reservation expired; business was not run');
+      return await action();
+    });}catch(error){task.state='cancel_pending';try{save(path,task);await finish(client,path,task,false);}catch{}throw error;}
     task.state='commit_pending';
     try{save(path,task);}catch(error){throw Error(`business completed; journal update failed; do not repeat operation ${id}`,{cause:error});}
     await finish(client,path,task,true);

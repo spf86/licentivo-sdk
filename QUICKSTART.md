@@ -26,10 +26,10 @@ For manual implementation, follow the steps below or the
 ## 1. Install the SDK in your application
 
 Select your language in the [SDK installation guide](https://www.licentivo.com/en/docs.html#sdk).
-Install SDK 0.11.3 with your language's package manager. For Go, run:
+Install SDK 0.11.4 with your language's package manager. For Go, run:
 
 ```sh
-go get github.com/spf86/licentivo-sdk@v0.11.3
+go get github.com/spf86/licentivo-sdk@v0.11.4
 ```
 
 Other languages use the pinned commands in [README.md](README.md#install-in-your-application).

@@ -13,7 +13,7 @@ Requirements: JDK 17+; JDK HTTP and Ed25519 APIs.
 Install the public SDK package in your existing application project:
 
 ```gradle
-implementation 'com.licentivo:licentivo-sdk:0.11.3'
+implementation 'com.licentivo:licentivo-sdk:0.11.4'
 ```
 
 Add the line above to your Gradle dependencies and enable `mavenCentral()`
@@ -23,7 +23,7 @@ in your repositories. For Maven, add this dependency to `pom.xml`:
 <dependency>
   <groupId>com.licentivo</groupId>
   <artifactId>licentivo-sdk</artifactId>
-  <version>0.11.3</version>
+  <version>0.11.4</version>
 </dependency>
 ```
 

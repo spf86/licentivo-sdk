@@ -26,6 +26,14 @@ final class DeviceCredential {
     boolean temporary(){return !Json.text(cfg,"license_key").isEmpty()||!Json.text(cfg,"identity_token").isEmpty()||state!=null;}
     String cacheHash()throws Exception{return !Json.text(cfg,"identity_token").isEmpty()||!Json.text(cfg,"license_key").isEmpty()?hash():state!=null?Json.text(state,"source_hash"):"";}
     String key(){return state!=null&&!Json.text(state,"device_key").isEmpty()?Json.text(state,"device_key"):Json.text(cfg,"license_key");}
+    boolean offlineInputMatches(String licenseKey,String identityToken)throws Exception{
+        String source=identityToken.isEmpty()?licenseKey:identityToken;
+        if(source.isEmpty())return false;
+        if(licenseKey.equals(key())&&(identityToken.isEmpty()||identityToken.equals(Json.text(cfg,"identity_token"))))return true;
+        return state!=null&&!Json.text(state,"device_key").isEmpty()&&HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(source.getBytes(StandardCharsets.UTF_8))).equals(Json.text(state,"source_hash"));
+    }
+    String offlineRequestID(){return state==null||!state.containsKey("offline_request_id")?"":Json.text(state,"offline_request_id");}
+    void offlineRequest(String id,String session)throws Exception{prepare(session);state.put("offline_request_id",id);dirty=true;save();}
     String session(String current){return state!=null&&Json.text(state,"device_key").isEmpty()?Json.text(state,"session_id"):current;}
     String request(String current){return state!=null&&Json.text(state,"device_key").isEmpty()?Json.text(state,"request_id"):current;}
     private static boolean uuid(String s){return s.matches("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}");}

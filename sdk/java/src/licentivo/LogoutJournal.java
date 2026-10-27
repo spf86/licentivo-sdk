@@ -16,13 +16,14 @@ import java.util.concurrent.*;
 final class LogoutJournal {
     private final Map<String,Object> cfg;
     private final Path path;
-    private Map<String,Object> state=new LinkedHashMap<>();
+    private Map<String,Object> state=emptyState();
     private boolean corrupt;
     private final Set<String> blockedBindings=new HashSet<>();
     LogoutJournal(Map<String,Object> config){
-        cfg=config;path=Path.of(Json.text(cfg,"cache_path")+".logout.json");state.put("version",1L);state.put("source_hash","");state.put("binding_key","");state.put("signed_out",false);state.put("pending",new ArrayList<>());
+        cfg=config;path=Path.of(Json.text(cfg,"cache_path")+".logout.json");
         try{if(Files.size(path)>65536)throw new IOException("invalid logout journal");Map<String,Object> j=Json.object(Json.parse(Files.readString(path),65536));if(Json.number(j,"version")!=1||!(j.get("pending") instanceof List<?>))throw new IOException("invalid logout journal");state=j;}catch(NoSuchFileException ignored){}catch(Exception error){corrupt=true;}
     }
+    private static Map<String,Object> emptyState(){Map<String,Object> s=new LinkedHashMap<>();s.put("version",1L);s.put("source_hash","");s.put("binding_key","");s.put("signed_out",false);s.put("pending",new ArrayList<>());return s;}
     private static String digest(String s)throws Exception{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8)));}
     private Path directory()throws Exception{
         String root=System.getenv("LOCALAPPDATA");if(root==null||root.isEmpty())root=System.getenv("XDG_CACHE_HOME");if(root==null||root.isEmpty())root=Path.of(System.getProperty("user.home"),".cache").toString();
@@ -37,7 +38,9 @@ final class LogoutJournal {
         try{Path dir=directory();if(Files.exists(dir))try(var paths=Files.list(dir)){for(Path p:paths.filter(p->p.toString().endsWith(".json")).toList()){
             if(Files.size(p)>65536)throw new IOException("invalid logout journal");Map<String,Object> j=Json.object(Json.parse(Files.readString(p),65536));if(Json.number(j,"version")!=1||!(j.get("pending") instanceof List<?>))throw new IOException("invalid logout journal");Map<String,Object> old=records.get(scope(j));if(old==null||revision(j)>revision(old)||revision(j)==revision(old)&&(Boolean.TRUE.equals(j.get("signed_out"))||!Boolean.TRUE.equals(old.get("signed_out"))))records.put(scope(j),j);
         }}}catch(Exception error){corrupt=true;}
-        boolean denied=corrupt;String key=binding(ticket);Map<String,Object> tickets=new LinkedHashMap<>();
+        // The primary journal may describe an older binding. Only a matching
+        // record can decide whether this credential requires another login.
+        state=emptyState();boolean denied=corrupt;String key=binding(ticket);Map<String,Object> tickets=new LinkedHashMap<>();
         for(Map<String,Object> j:records.values()){
             String b=optional(j,"binding_key");if(Boolean.TRUE.equals(j.get("signed_out"))&&!b.isEmpty())blockedBindings.add(b);if((sourceHash.equals(Json.text(j,"source_hash"))||!optional(cfg,"launch_connection_id").isEmpty()&&!key.isEmpty()&&key.equals(b)||sourceHash.isEmpty()&&optional(cfg,"identity_token").isEmpty()&&Json.text(cfg,"license_key").isEmpty())&&(b.isEmpty()||key.isEmpty()||b.equals(key))){state=j;if(Boolean.TRUE.equals(j.get("signed_out"))&&Json.text(cfg,"license_key").isEmpty())denied=true;}
             for(Object t:(List<?>)j.get("pending"))tickets.put(Json.text(Json.object(t),"operation_id"),t);
@@ -46,12 +49,18 @@ final class LogoutJournal {
     }
     @SuppressWarnings("unchecked") private List<Object> pending(){return (List<Object>)state.get("pending");}
     boolean hasPending(){return !pending().isEmpty();}
+    boolean requiresOnlineLogin(){return Boolean.TRUE.equals(state.get("signed_out"));}
+    String offlineRequestID(){return state.containsKey("offline_request_id")?Json.text(state,"offline_request_id"):"";}
+    void rememberOfflineRequest(String id)throws Exception{if(requiresOnlineLogin()){state.put("offline_request_id",id);save();}}
     boolean bindingBlocked(Map<String,Object> result){return !optional(cfg,"launch_connection_id").isEmpty()&&result.get("logout_ticket") instanceof Map&&blockedBindings.contains(binding(Json.object(result.get("logout_ticket"))));}
     void acceptLogin()throws Exception{if(Boolean.TRUE.equals(state.get("signed_out"))){state.put("signed_out",false);save();}}
     void deny(String sourceHash,Map<String,Object> ticket)throws Exception{
-        if(!sourceHash.isEmpty())state.put("source_hash",sourceHash);state.put("signed_out",true);
+        deny(sourceHash,ticket,true);
+    }
+    void deny(String sourceHash,Map<String,Object> ticket,boolean queueRelease)throws Exception{
+        if(!sourceHash.isEmpty())state.put("source_hash",sourceHash);state.put("signed_out",true);state.put("offline_request_id","");
         if(ticket!=null){state.put("binding_key",binding(ticket));blockedBindings.add(binding(ticket));}
-        if(ticket!=null&&pending().stream().noneMatch(p->Objects.equals(Json.object(p).get("operation_id"),ticket.get("operation_id"))))pending().add(new LinkedHashMap<>(ticket));save();
+        if(queueRelease&&ticket!=null&&pending().stream().noneMatch(p->Objects.equals(Json.object(p).get("operation_id"),ticket.get("operation_id"))))pending().add(new LinkedHashMap<>(ticket));save();
     }
     void retry(HttpClient http)throws Exception{
         while(hasPending()){

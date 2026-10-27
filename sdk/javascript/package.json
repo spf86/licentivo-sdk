@@ -1,6 +1,6 @@
 {
   "name": "@licentivo/sdk",
-  "version": "0.11.3",
+  "version": "0.11.4",
   "description": "Licentivo Node.js client with license activation, device credentials, pinned signatures, policy heartbeats, offline grants, floating seats and metered workflows",
   "keywords": ["licensing", "sdk", "activation", "offline", "heartbeat", "entitlements", "metering"],
   "license": "MIT",

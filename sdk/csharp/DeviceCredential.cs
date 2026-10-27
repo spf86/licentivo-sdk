@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace Licentivo;
 
 public sealed partial class LicentivoClient {
-    private sealed record Credential(int Version,string SourceHash,string Origin,string ProductId,string DeviceId,string DeviceKey,string RequestId,string SessionId,JsonElement? LogoutTicket=null);
+    private sealed record Credential(int Version,string SourceHash,string Origin,string ProductId,string DeviceId,string DeviceKey,string RequestId,string SessionId,JsonElement? LogoutTicket=null,string OfflineRequestId="");
     private Credential? credential;
     private bool credentialDirty;
     private bool Temporary=>config.LicenseKey!=""||config.IdentityToken!=""||credential is not null;

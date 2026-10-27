@@ -1,7 +1,5 @@
 # Licentivo client SDKs
 
-Maven Central 0.11.3 is awaiting publication. Until then, use Maven version 0.11.2 or the Java JAR from the [GitHub Release](https://github.com/spf86/licentivo-sdk/releases/tag/v0.11.3). [Publication status](docs/releases/0.11.3-links.json).
-
 [Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs.html#sdk) · [Source code](https://github.com/spf86/licentivo-sdk)
 
 Integrate license activation, signed feature permissions, device binding and
@@ -17,17 +15,17 @@ described in [EXAMPLE.md](../EXAMPLE.md).
 
 Use the public package manager for your language. Run the command in your own
 application project; no source download, extraction or local path override is
-needed. All commands below select SDK 0.11.3.
+needed. All commands below select SDK 0.11.4.
 
 | Language | Install |
 | --- | --- |
-| Go | `go get github.com/spf86/licentivo-sdk@v0.11.3` |
-| Python | `python -m pip install "licentivo-sdk==0.11.3"` |
-| Node.js | `npm install @licentivo/sdk@0.11.3` |
-| C# | `dotnet add package Licentivo.SDK --version 0.11.3` |
-| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.3'` with Maven Central enabled; [Maven configuration](java/README.md) |
-| Rust | `cargo add licentivo@=0.11.3` |
-| Ruby | `gem install licentivo-sdk --version 0.11.3` |
+| Go | `go get github.com/spf86/licentivo-sdk@v0.11.4` |
+| Python | `python -m pip install "licentivo-sdk==0.11.4"` |
+| Node.js | `npm install @licentivo/sdk@0.11.4` |
+| C# | `dotnet add package Licentivo.SDK --version 0.11.4` |
+| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.4'` with Maven Central enabled; [Maven configuration](java/README.md) |
+| Rust | `cargo add licentivo@=0.11.4` |
+| Ruby | `gem install licentivo-sdk --version 0.11.4` |
 | C / C++ | Use the [automatic native package installer](https://www.licentivo.com/en/docs.html#sdk), then link `Licentivo::C` / `Licentivo::CPP`. |
 
 Package installation installs the common library. Product ID and trusted public
@@ -62,6 +60,13 @@ a request or query remaining quota. Explicit refresh contacts the server; valid
 offline behavior follows the signed policy and expiry. Every business path,
 including alternate buttons/shortcuts/commands, must use the same feature gate.
 
+Offline approval files belong to the latest activation request from the client.
+The same approval can be imported again after a restart or a failed cache write.
+Exporting an offline deactivation request signs out locally immediately; deliver
+the file to the vendor to release the server binding. After logout, enter your
+activation information again and generate a new request before importing a new
+approval. An older approval cannot restore a logged-out session.
+
 ## Feature consumption
 
 `RunMeteredFeature(feature, quantity, stableJobID, callback)` handles reserve,
@@ -79,7 +84,7 @@ Go 1.26+, Java 17+, .NET 8+, Python 3.10+, Node.js 20+, Rust 1.77+ and Ruby 3.1+
 are supported. C/C++ use C11/C++17, CMake and libcurl development files. Rust and
 Ruby share that native core; on Windows use GNU/MinGW and matching libcurl, with
 LICENTIVO_CURL_ROOT set for native builds. Python desktop examples require Tk.
-SDK version: 0.11.3. Use the pinned package manager commands above.
+SDK version: 0.11.4. Use the pinned package manager commands above.
 
 Online errors expose a code and, when available, request ID/retry information.
 Present the reason to the user. Local status does not guarantee a later network
