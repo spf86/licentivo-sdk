@@ -92,7 +92,20 @@ int main(int argc, char **argv) {
                 one=read(client.Reserve("export",1,"commit-job"));id=cJSON_GetObjectItemCaseSensitive(one,"reservation_id")->valuestring;cJSON_Delete(one);for(int k=0;k<2;k++){one=read(client.Commit(id,"commit-job"));check(one,"committed",1);cJSON_Delete(one);}one=read(client.Reserve("export",1,"commit-job"));check(one,"committed",1);cJSON_Delete(one);
                 bool failed=false;try{client.Consume("export",1000,"quota-job");}catch(const licentivo::APIError&e){failed=std::string(e.details.code)=="FEATURE_QUOTA_EXCEEDED"&&e.details.request_id[0]&&!e.details.retryable;}if(!failed||!client.CheckFeature("export"))throw std::runtime_error("typed quota status missing");licentivo::Client restored(path,"");restored.Start();restored.Validate();if(!restored.CheckFeature("export"))throw std::runtime_error("normal credential not retained");restored.Deactivate();if(restored.CheckFeature("export"))throw std::runtime_error("release grants access");std::cout<<"C++: credential / reservation / typed status OK"<<std::endl;return 0;
             }
-            for(int i=1;i<argc;i++)if(std::string(argv[i])=="--startup-test"){auto start=std::chrono::steady_clock::now();client.Start();if(std::chrono::steady_clock::now()-start>std::chrono::milliseconds(300))throw std::runtime_error("cached startup blocked");start=std::chrono::steady_clock::now();if(!client.CheckFeature("export")||std::chrono::steady_clock::now()-start>std::chrono::milliseconds(300))throw std::runtime_error("local check blocked");std::cout<<"C++: cached startup and local feature checks stay responsive"<<std::endl;return 0;}
+            for(int i=1;i<argc;i++)if(std::string(argv[i])=="--startup-test"){
+                auto start=std::chrono::steady_clock::now();client.Start();
+                if(std::chrono::steady_clock::now()-start>std::chrono::milliseconds(300))throw std::runtime_error("cached startup blocked");
+                start=std::chrono::steady_clock::now();
+                if(!client.CheckFeature("export")||std::chrono::steady_clock::now()-start>std::chrono::milliseconds(300))throw std::runtime_error("local check blocked");
+                bool refreshed=false;const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+                while(!refreshed&&std::chrono::steady_clock::now()<deadline){
+                    cJSON*status=ln_json(client.Status().c_str());const cJSON*state=cJSON_GetObjectItemCaseSensitive(status,"state");
+                    refreshed=cJSON_IsString(state)&&std::string(state->valuestring)=="active";cJSON_Delete(status);
+                    if(!refreshed)std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+                if(!refreshed)throw std::runtime_error("background refresh did not finish");
+                std::cout<<"C++: cached startup and local feature checks stay responsive"<<std::endl;return 0;
+            }
             bool advanced=false,offlineExport=false,offlineImport=false,floating=false;
             for(int i=1;i<argc;i++){std::string flag(argv[i]);if(flag=="--advanced-test")advanced=true;if(flag=="--offline-export")offlineExport=true;if(flag=="--offline-import")offlineImport=true;if(flag=="--floating-test")floating=true;}
             if(offlineExport){std::ofstream f(path+".request.json");f<<client.OfflineRequest();if(!f)throw std::runtime_error("write failed");std::cout<<"C++: offline request exported"<<std::endl;return 0;}

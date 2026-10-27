@@ -13,10 +13,10 @@ Requirements: Ruby 3.1+, Fiddle, C11 compiler and libcurl development files. Sou
 Install the public SDK package in your existing application project:
 
 ```sh
-gem install licentivo-sdk --version 0.11.5
+gem install licentivo-sdk --version 0.11.6
 ```
 
-For Bundler, use `gem "licentivo-sdk", "= 0.11.5"` in your Gemfile.
+For Bundler, use `gem "licentivo-sdk", "= 0.11.6"` in your Gemfile.
 
 No SDK source download, extraction or local path dependency is required.
 

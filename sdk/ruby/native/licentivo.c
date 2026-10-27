@@ -186,6 +186,24 @@ static int hash(const char*s,char out[65]){unsigned char raw[32]={0};int ok=0;
  out[64]=0;
  return 1;
 }
+#if defined(__APPLE__) || defined(LICENTIVO_TEST_PLATFORM_LINES)
+/* A host runtime can interrupt pipe reads with a signal. Preserve the partial
+ * line while retrying EINTR so an interrupted ioreg read cannot change the
+ * device identity or make an otherwise valid configuration fail. */
+static char*platform_read_line(FILE*stream,char*line,size_t capacity){
+ if(capacity<2)return NULL;
+ size_t used=0;
+ while(used+1<capacity){
+  errno=0;int ch=fgetc(stream);
+  if(ch==EOF){
+   if(ferror(stream)){if(errno==EINTR){clearerr(stream);continue;}return NULL;}
+   break;
+  }
+  line[used++]=(char)ch;if(ch=='\n')break;
+ }
+ line[used]=0;return used?line:NULL;
+}
+#endif
 /* OS identity is read locally; app folders and cache files cannot provide it. */
 static int system_device_id(const char*product,char out[65]){
  if(!uuid(product))return 0;
@@ -197,7 +215,7 @@ static int system_device_id(const char*product,char out[65]){
  if(result!=ERROR_SUCCESS||type!=REG_SZ||size>=sizeof(identity))return 0;
 #elif defined(__APPLE__)
  FILE*f=popen("/usr/sbin/ioreg -rd1 -c IOPlatformExpertDevice","r");if(!f)return 0;char line[2048];
- while(fgets(line,sizeof(line),f)){char*p=strstr(line,"\"IOPlatformUUID\"");if(!p)continue;p=strchr(p,'=');if(!p)continue;p=strchr(p,'"');if(!p)continue;p++;char*end=strchr(p,'"');if(end&&end-p<127){memcpy(identity,p,(size_t)(end-p));break;}}
+ while(platform_read_line(f,line,sizeof(line))){char*p=strstr(line,"\"IOPlatformUUID\"");if(!p)continue;p=strchr(p,'=');if(!p)continue;p=strchr(p,'"');if(!p)continue;p++;char*end=strchr(p,'"');if(end&&end-p<127){memcpy(identity,p,(size_t)(end-p));break;}}
  pclose(f);
 #else
  const char*paths[]={"/etc/machine-id","/var/lib/dbus/machine-id"};for(int i=0;i<2;i++){FILE*f=fopen(paths[i],"rb");if(!f)continue;size_t n=fread(identity,1,127,f);fclose(f);identity[n]=0;if(n)break;}
@@ -224,7 +242,7 @@ static cJSON*machine_profile(const char*product,char dev[65]){
  char command[]="powershell.exe -NoProfile -NonInteractive -Command \"(Get-CimInstance Win32_ComputerSystemProduct).UUID; $v=Get-CimInstance Win32_ComputerSystem; $v.Manufacturer; $v.Model\"";
  if(CreateProcessA(NULL,command,NULL,NULL,TRUE,CREATE_NO_WINDOW,NULL,NULL,&startup,&process)){CloseHandle(writer);writer=NULL;if(WaitForSingleObject(process.hProcess,5000)==WAIT_TIMEOUT)TerminateProcess(process.hProcess,1);DWORD n=0;ReadFile(reader,description,sizeof(description)-1,&n,NULL);description[n]=0;CloseHandle(process.hProcess);CloseHandle(process.hThread);const char*end=strchr(description,'\n');size_t len=end?(size_t)(end-description):strlen(description);if(len<sizeof(hardware))memcpy(hardware,description,len);}if(writer)CloseHandle(writer);CloseHandle(reader);}
 #elif defined(__APPLE__)
- platform="darwin";FILE*f=popen("/usr/sbin/ioreg -rd1 -c IOPlatformExpertDevice","r");if(f){char line[2048];while(fgets(line,sizeof(line),f)){if(strstr(line,"VMware")||strstr(line,"Parallels"))strcpy(description,"virtual machine");char*p=strstr(line,"\"IOPlatformUUID\"");if(!p)continue;p=strchr(p,'=');if(!p)continue;p=strchr(p,'"');if(!p)continue;p++;char*end=strchr(p,'"');if(end&&end-p<127)memcpy(hardware,p,(size_t)(end-p));}pclose(f);}
+ platform="darwin";FILE*f=popen("/usr/sbin/ioreg -rd1 -c IOPlatformExpertDevice","r");if(f){char line[2048];while(platform_read_line(f,line,sizeof(line))){if(strstr(line,"VMware")||strstr(line,"Parallels"))strcpy(description,"virtual machine");char*p=strstr(line,"\"IOPlatformUUID\"");if(!p)continue;p=strchr(p,'=');if(!p)continue;p=strchr(p,'"');if(!p)continue;p++;char*end=strchr(p,'"');if(end&&end-p<127)memcpy(hardware,p,(size_t)(end-p));}pclose(f);}
 #else
  platform="linux";FILE*f=fopen("/sys/class/dmi/id/product_uuid","rb");if(f){size_t n=fread(hardware,1,sizeof(hardware)-1,f);hardware[n]=0;fclose(f);}const char*paths[]={"/sys/class/dmi/id/sys_vendor","/sys/class/dmi/id/product_name","/.dockerenv"};for(int i=0;i<3;i++){f=fopen(paths[i],"rb");if(f){if(i==2)strcat(description," virtual machine");else{size_t used=strlen(description),n=fread(description+used,1,512,f);description[used+n]=0;strcat(description," ");}fclose(f);}}
 #endif

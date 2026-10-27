@@ -102,7 +102,27 @@ int main(int argc, char **argv) {
     }
     for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--logout-retry")){int ok=ln_retry_pending_logouts(client)&&!ln_check_feature(client,"export");ln_destroy(client);if(ok)puts("C: pending logout completed");return ok?0:1;}
     for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--improvements-test")){int ok=improvements(client,path);if(!ok)fprintf(stderr,"C: %s\n",ln_last_error(client));ln_destroy(client);if(ok)puts("C: credential / reservation / typed status OK");return ok?0:1;}
-    for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--startup-test")){double start=clock_seconds();int ok=ln_start(client)&&clock_seconds()-start<.3;start=clock_seconds();ok=ok&&ln_check_feature(client,"export")&&clock_seconds()-start<.3;ln_destroy(client);if(ok)puts("C: cached startup and local feature checks stay responsive");return ok?0:1;}
+    for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--startup-test")){
+        double start=clock_seconds();int ok=ln_start(client)&&clock_seconds()-start<.3;
+        start=clock_seconds();ok=ok&&ln_check_feature(client,"export")&&clock_seconds()-start<.3;
+        /* Keep the client alive until the asynchronous refresh has finished. */
+        int refreshed=0;double deadline=clock_seconds()+5;
+        while(ok&&!refreshed&&clock_seconds()<deadline){
+            char*raw=ln_status(client);cJSON*status=raw?ln_json(raw):NULL;ln_free_string(raw);
+            const cJSON*state=cJSON_GetObjectItemCaseSensitive(status,"state");
+            refreshed=cJSON_IsString(state)&&!strcmp(state->valuestring,"active");cJSON_Delete(status);
+            if(!refreshed){
+#ifdef _WIN32
+                Sleep(10);
+#else
+                struct timespec pause={0,10000000L};nanosleep(&pause,NULL);
+#endif
+            }
+        }
+        ok=ok&&refreshed;ln_destroy(client);
+        if(ok)puts("C: cached startup and local feature checks stay responsive");
+        return ok?0:1;
+    }
     int advanced=0,offline_export=0,offline_import=0,floating=0;
     for(int i=1;i<argc;i++){if(!strcmp(argv[i],"--advanced-test"))advanced=1;if(!strcmp(argv[i],"--offline-export"))offline_export=1;if(!strcmp(argv[i],"--offline-import"))offline_import=1;if(!strcmp(argv[i],"--floating-test"))floating=1;}
     if(offline_export){char*request=ln_offline_request(client,"activate");char file[4096];snprintf(file,sizeof(file),"%s.request.json",path);FILE*f=request?fopen(file,"wb"):NULL;int ok=f&&fwrite(request,1,strlen(request),f)==strlen(request);if(f)fclose(f);ln_free_string(request);ln_destroy(client);if(ok)puts("C: offline request exported");return ok?0:1;}

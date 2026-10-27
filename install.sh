@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 language="${1:-}"
-if [[ -z "$language" ]]; then echo 'Usage: bash install.sh LANGUAGE [--version 0.11.5] [--destination DIR] [--download-only]' >&2; exit 2; fi
+if [[ -z "$language" ]]; then echo 'Usage: bash install.sh LANGUAGE [--version 0.11.6] [--destination DIR] [--download-only]' >&2; exit 2; fi
 shift
-version=0.11.5
+version=0.11.6
 destination=.licentivo-sdk
 project=''
 python_exe=python3
@@ -25,7 +25,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; exit 2;;
   esac
 done
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Use a semantic release version such as 0.11.5.' >&2; exit 2; }
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Use a semantic release version such as 0.11.6.' >&2; exit 2; }
 case "$language" in go|python|javascript|java|csharp|c|cpp|rust|ruby) ;; *) echo "Unsupported language: $language" >&2; exit 2;; esac
 # Normal online installation uses the language registry, without a source tree.
 if [[ -z "$package_dir" && "$download_only" == 0 && "$language" != c && "$language" != cpp ]]; then

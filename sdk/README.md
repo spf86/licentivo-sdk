@@ -15,17 +15,17 @@ described in [EXAMPLE.md](../EXAMPLE.md).
 
 Use the public package manager for your language. Run the command in your own
 application project; no source download, extraction or local path override is
-needed. All commands below select SDK 0.11.5.
+needed. All commands below select SDK 0.11.6.
 
 | Language | Install |
 | --- | --- |
-| Go | `go get github.com/spf86/licentivo-sdk@v0.11.5` |
-| Python | `python -m pip install "licentivo-sdk==0.11.5"` |
-| Node.js | `npm install @licentivo/sdk@0.11.5` |
-| C# | `dotnet add package Licentivo.SDK --version 0.11.5` |
-| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.5'` with Maven Central enabled; [Maven configuration](java/README.md) |
-| Rust | `cargo add licentivo@=0.11.5` |
-| Ruby | `gem install licentivo-sdk --version 0.11.5` |
+| Go | `go get github.com/spf86/licentivo-sdk@v0.11.6` |
+| Python | `python -m pip install "licentivo-sdk==0.11.6"` |
+| Node.js | `npm install @licentivo/sdk@0.11.6` |
+| C# | `dotnet add package Licentivo.SDK --version 0.11.6` |
+| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.6'` with Maven Central enabled; [Maven configuration](java/README.md) |
+| Rust | `cargo add licentivo@=0.11.6` |
+| Ruby | `gem install licentivo-sdk --version 0.11.6` |
 | C / C++ | Use the [automatic native package installer](https://www.licentivo.com/en/docs.html#sdk), then link `Licentivo::C` / `Licentivo::CPP`. |
 
 Package installation installs the common library. Product ID and trusted public
@@ -84,7 +84,7 @@ Go 1.26+, Java 17+, .NET 8+, Python 3.10+, Node.js 20+, Rust 1.77+ and Ruby 3.1+
 are supported. C/C++ use C11/C++17, CMake and libcurl development files. Rust and
 Ruby share that native core; on Windows use GNU/MinGW and matching libcurl, with
 LICENTIVO_CURL_ROOT set for native builds. Python desktop examples require Tk.
-SDK version: 0.11.5. Use the pinned package manager commands above.
+SDK version: 0.11.6. Use the pinned package manager commands above.
 
 Online errors expose a code and, when available, request ID/retry information.
 Present the reason to the user. Local status does not guarantee a later network
