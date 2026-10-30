@@ -46,6 +46,8 @@ func versionContext(c lease.Claims, version string, sessions ...string) error {
 }
 func (c *Client) runtimeBody(activation string) map[string]any {
 	body := map[string]any{"product_id": c.cfg.ProductID, "license_key": c.runtimeKey(), "device_id": c.cfg.DeviceID, "device_name": c.cfg.DeviceName, "activation_id": activation, "app_version": c.cfg.AppVersion, "session_id": c.sessionID, "device_profile": c.profile}
+	details := c.deviceDetails
+	body["device_info"] = map[string]any{"os_version": details.OSVersion, "cpu": details.CPU, "memory_mb": details.MemoryMB, "gpu": details.GPU, "system_type": details.SystemType, "storage_gb": details.StorageGB}
 	if c.auth.LogoutTicket == nil {
 		body["request_logout_ticket"] = true
 	}

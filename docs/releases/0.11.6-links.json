@@ -1,0 +1,51 @@
+{
+  "version": "0.11.6",
+  "release": "https://github.com/spf86/licentivo-sdk/releases/tag/v0.11.6",
+  "checked_at": "2026-10-27T14:04:59.133965+00:00",
+  "all_six_completed": true,
+  "registry_count": 6,
+  "registries": {
+    "npm": {
+      "version": "0.11.6",
+      "url": "https://registry.npmjs.org/@licentivo%2Fsdk/0.11.6",
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.6"
+    },
+    "pypi": {
+      "version": "0.11.6",
+      "url": "https://pypi.org/pypi/licentivo-sdk/0.11.6/json",
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.6"
+    },
+    "nuget": {
+      "version": "0.11.6",
+      "url": "https://api.nuget.org/v3-flatcontainer/licentivo.sdk/0.11.6/licentivo.sdk.nuspec",
+      "published": true,
+      "http_status": 200,
+      "metadata_sha256": "64bb78fef0506eced9a5d0a91d97bd4cfbf30718d45e783606fa52654e7b5d4a"
+    },
+    "ruby": {
+      "version": "0.11.6",
+      "url": "https://rubygems.org/api/v2/rubygems/licentivo-sdk/versions/0.11.6.json",
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.6"
+    },
+    "crates": {
+      "version": "0.11.6",
+      "url": "https://crates.io/api/v1/crates/licentivo/0.11.6",
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.6"
+    },
+    "maven": {
+      "version": "0.11.6",
+      "url": "https://repo.maven.apache.org/maven2/com/licentivo/licentivo-sdk/0.11.6/licentivo-sdk-0.11.6.pom",
+      "published": true,
+      "http_status": 200,
+      "metadata_sha256": "65854c385dc9c36ca04a030404d0ce6b7fb4f171ff81884821e3da68f91f0321"
+    }
+  }
+}

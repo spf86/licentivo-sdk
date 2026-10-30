@@ -4,7 +4,7 @@ require 'json'
 require 'monitor'
 
 module Licentivo
-  VERSION = '0.11.6'
+  VERSION = '0.11.7'
 
   class Error < StandardError
     attr_reader :code, :http_status, :request_id, :retryable, :retry_after_seconds
@@ -159,7 +159,10 @@ module Licentivo
     end
     def retry_pending_logouts = checked(:retry_pending_logouts)
     def logout_pending? = @lock.synchronize { Native.call(:logout_pending, active) != 0 }
-    def status = @signed_out ? signed_out_status : read_json(:status)
+    def status
+      result = read_json(:status)
+      @signed_out ? result.merge(signed_out_status) : result
+    end
     def feature_status(feature) = @signed_out ? signed_out_status : read_json(:feature_status, Native.input(feature))
     def reserve(feature, quantity, job_id) = read_json(:reserve, Native.input(feature), integer(quantity), Native.input(job_id))
     def consume(feature, quantity, job_id) = read_json(:consume, Native.input(feature), integer(quantity), Native.input(job_id))

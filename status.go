@@ -10,12 +10,13 @@ import (
 // Status never makes a network request. LeaseValidUntil is the signed cache
 // deadline; it is not necessarily the subscription or license expiry date.
 type Status struct {
-	State           string `json:"state"`
-	Allowed         bool   `json:"allowed"`
-	Code            string `json:"code,omitempty"`
-	RequestID       string `json:"request_id,omitempty"`
-	Retryable       bool   `json:"retryable"`
-	LeaseValidUntil int64  `json:"lease_valid_until,omitempty"`
+	Device          DeviceInfo `json:"device"`
+	State           string     `json:"state"`
+	Allowed         bool       `json:"allowed"`
+	Code            string     `json:"code,omitempty"`
+	RequestID       string     `json:"request_id,omitempty"`
+	Retryable       bool       `json:"retryable"`
+	LeaseValidUntil int64      `json:"lease_valid_until,omitempty"`
 }
 type localView struct {
 	state          cache
@@ -69,10 +70,10 @@ func (c *Client) localClaims() (lease.Claims, error) {
 }
 func (c *Client) Status() Status {
 	if c.denied.Load() {
-		return Status{State: "released", Code: "LAUNCH_LOGIN_REQUIRED"}
+		return Status{State: "released", Code: "LAUNCH_LOGIN_REQUIRED", Device: c.DeviceInfo()}
 	}
 	v := c.view.Load()
-	s := Status{State: "verification_required"}
+	s := Status{State: "verification_required", Device: c.DeviceInfo()}
 	if v == nil {
 		return s
 	}

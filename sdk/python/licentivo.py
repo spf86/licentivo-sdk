@@ -136,14 +136,66 @@ class APIError(Exception):
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs): return None
 
+def _machine_display_details():
+    info={'os_version':'','cpu':'','memory_mb':0,'gpu':'','system_type':platform.machine(),'storage_gb':0}
+    try:
+        import shutil
+        info['storage_gb']=shutil.disk_usage(Path.home().anchor or '/').total//1073741824
+    except Exception: pass
+    try:
+        if platform.system()=='Windows':
+            import winreg,ctypes
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,r'SOFTWARE\Microsoft\Windows NT\CurrentVersion',access=winreg.KEY_READ|winreg.KEY_WOW64_64KEY) as key:
+                def value(name):
+                    try:return str(winreg.QueryValueEx(key,name)[0])
+                    except OSError:return ''
+                name=value('ProductName');build=value('CurrentBuildNumber')
+                if build.isdigit() and int(build)>=22000:name=name.replace('Windows 10','Windows 11')
+                info['os_version']=(name+' '+value('DisplayVersion')+' ('+build+')').strip()
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,r'HARDWARE\DESCRIPTION\System\CentralProcessor\0') as key:info['cpu']=winreg.QueryValueEx(key,'ProcessorNameString')[0]
+            memory=ctypes.c_ulonglong()
+            if ctypes.windll.kernel32.GetPhysicallyInstalledSystemMemory(ctypes.byref(memory)):info['memory_mb']=memory.value//1024
+            cards=[]
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,r'SYSTEM\CurrentControlSet\Control\Video') as key:
+                for i in range(min(winreg.QueryInfoKey(key)[0],32)):
+                    try:
+                        with winreg.OpenKey(key,winreg.EnumKey(key,i)+r'\0000') as card:
+                            name=winreg.QueryValueEx(card,'DriverDesc')[0]
+                            if name not in cards:cards.append(name)
+                    except OSError:pass
+            info['gpu']=' / '.join(cards)
+        elif platform.system()=='Darwin':
+            def run(*args):
+                try:return subprocess.check_output(args,timeout=2,text=True,stderr=subprocess.DEVNULL).strip()
+                except Exception:return ''
+            info['os_version']=run('/usr/bin/sw_vers','-productName')+' '+run('/usr/bin/sw_vers','-productVersion')
+            info['cpu']=run('/usr/sbin/sysctl','-n','machdep.cpu.brand_string');info['memory_mb']=int(run('/usr/sbin/sysctl','-n','hw.memsize') or '0')//1048576
+        else:
+            for line in Path('/etc/os-release').read_text().splitlines():
+                if line.startswith('PRETTY_NAME='):info['os_version']=line.split('=',1)[1].strip('"');break
+            values={}
+            for line in Path('/proc/cpuinfo').read_text().splitlines():
+                if ':' in line:
+                    key,value=line.split(':',1);values.setdefault(key.strip(),value.strip())
+            info['cpu']=next((values[key] for key in ['model name','Hardware','Processor'] if values.get(key)),'')
+            if not info['cpu'] and values.get('CPU part'):info['cpu']='ARM CPU (implementer '+values.get('CPU implementer','')+', part '+values['CPU part']+')'
+            info['memory_mb']=os.sysconf('SC_PHYS_PAGES')*os.sysconf('SC_PAGE_SIZE')//1048576
+    except Exception:pass
+    for key in ['os_version','cpu','gpu','system_type']:info[key]=''.join(c for c in str(info[key]) if ord(c)>=32 and not 127<=ord(c)<=159)[:240 if key=='gpu' else 40 if key=='system_type' else 160].strip()
+    return info
+
 class Client:
     def __init__(self, config):
         self.feature_task_lock = threading.Lock()
         self.config=dict(config); self.config.setdefault('license_key',''); self.config['base_url']=(self.config.get('base_url') or 'https://www.licentivo.com').rstrip('/');
         if not self.config.get('cache_path'): self.config['cache_path']=str(Path(os.environ.get('LOCALAPPDATA') or os.environ.get('XDG_CACHE_HOME') or str(Path.home()/'.cache'))/'Licentivo'/hashlib.sha256((self.config['base_url']+'\n'+self.config['product_id']).encode()).hexdigest()/'lease.json')
         self.profile,self.config['device_id']=machine_profile(config['product_id']); self.session_id=str(uuid.uuid4()); config=self.config; u=urllib.parse.urlsplit(config['base_url'])
+        if not str(config.get('device_name') or '').strip():
+            name=''.join(c for c in platform.node().strip() if ord(c)>=32 and not 127<=ord(c)<=159)[:120]
+            config['device_name']=name or {'windows':'Windows','darwin':'macOS','linux':'Linux'}[self.profile['platform']]
         if u.username or not u.hostname or u.query or u.fragment or u.path not in ['','/']: raise ValueError('base_url must be an origin')
         if u.scheme!='https' and not (config.get('allow_http') is True and u.scheme=='http' and u.hostname in ['localhost','127.0.0.1','::1']): raise ValueError('HTTPS required')
+        self.display_details=_machine_display_details()
         if not re.fullmatch(r'[0-9a-f]{64}',config['device_id']) or config['license_key'] and not re.fullmatch(r'lv_(lic|tmp)_[A-Za-z0-9_-]{43}',config['license_key']): raise ValueError('invalid device/license')
         if not config['trusted_keys'] or any(len(decode(k))!=32 for k in config['trusted_keys'].values()): raise ValueError('pin a public key')
         self.lock=threading.RLock(); self.state=None; self.interval=3600; self.wall=0; self.tick=time.monotonic(); self.stop=threading.Event(); self.thread=None; self.refresh_thread=None; self.closed=False
@@ -162,6 +214,10 @@ class Client:
                     self.state=s;self.wall=s['observed_at'];self.interval=c.get('runtime_policy',{}).get('heartbeat_seconds',3600)
         except Exception: pass  # A corrupt/expired cache never grants access.
         self._publish(False)
+
+    def device_info(self):
+        value=self.config['device_id']
+        return {'name':self.config.get('device_name',''),'code':(value[:4]+'-'+value[-4:]).upper(),'platform':self.profile['platform'],**self.display_details}
 
     def _hash(self): return hashlib.sha256(self.config['identity_token'].encode()).hexdigest() if self.config.get('identity_token') else self.auth['source_hash'] if not self.config['license_key'] and self.auth else hashlib.sha256(self.config['license_key'].encode()).hexdigest()
     def _temporary(self): return bool(self.config['license_key']) or bool(self.config.get('identity_token')) or self.auth is not None
@@ -340,7 +396,7 @@ class Client:
         if x and (x.get('app_version','')!=self.config.get('app_version','') or x['license_model']=='floating' and x.get('session_id')!=self.session_id): raise ValueError('lease belongs to another version/session')
     def _body(self,activation=''):
         identity={k:self.config.get(k,'') for k in ['identity_token','launch_connection_id','environment']} if not (self.auth or {}).get('device_key') and self.config.get('identity_token') else {}
-        return {k:self.config.get(k,'') for k in ['product_id','device_id','device_name','app_version']} | {'license_key':self._runtime_key(),'activation_id':activation,'session_id':self.session_id,'device_profile':self.profile} | ({'request_logout_ticket':True} if not (self.auth or {}).get('logout_ticket') else {}) | ({'launch_connection_id':self.config['launch_connection_id'],'environment':self.config.get('environment','')} if self.config.get('launch_connection_id') else {}) | identity
+        return {k:self.config.get(k,'') for k in ['product_id','device_id','device_name','app_version']} | {'license_key':self._runtime_key(),'activation_id':activation,'session_id':self.session_id,'device_profile':self.profile,'device_info':self.display_details} | ({'request_logout_ticket':True} if not (self.auth or {}).get('logout_ticket') else {}) | ({'launch_connection_id':self.config['launch_connection_id'],'environment':self.config.get('environment','')} if self.config.get('launch_connection_id') else {}) | identity
     def start(self,on_error=None):
         if self.closed: raise RuntimeError('client is closed')
         try:
@@ -427,9 +483,9 @@ class Client:
             callback=self.on_status_changed
             threading.Thread(target=lambda:callback(after),daemon=True).start()
     def status(self):
-        if self.signed_out: return dict(state='released',allowed=False,code='LAUNCH_LOGIN_REQUIRED',request_id='',retryable=False,lease_valid_until=0)
+        if self.signed_out: return dict(state='released',allowed=False,code='LAUNCH_LOGIN_REQUIRED',request_id='',retryable=False,lease_valid_until=0,device=self.device_info())
         state,wall,tick=self.snapshot
-        result={'state':'verification_required','allowed':False,'code':'','request_id':'','retryable':False,'lease_valid_until':0}
+        result={'device':self.device_info(),'state':'verification_required','allowed':False,'code':'','request_id':'','retryable':False,'lease_valid_until':0}
         if self.last_error:
             result.update(code=getattr(self.last_error,'code','NETWORK_UNAVAILABLE'),request_id=getattr(self.last_error,'request_id',''),retryable=getattr(self.last_error,'retryable',True))
         try:

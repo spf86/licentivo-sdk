@@ -37,7 +37,7 @@ python scripts/publish-website.py --packages dist --output WEBSITE_ASSETS/sdk
 
 This creates `releases/vVERSION/`, manifest/checksums, stable installers and `latest.json`. Published versions are immutable: changed bytes require a new version, and latest cannot move backwards. Staging performs no network request. Deploy through the website's existing procedure after consumer checks and a recoverable backup.
 
-In the Licentivo server workspace, use `web/assets/sdk` as the output. Assets are embedded when the website binary is rebuilt. Generated packages are ignored by server Git. Update `web/assets/js/sdk-install.js`, installer defaults and translated documentation when changing VERSION.
+In the Licentivo server workspace, use `web/assets/sdk` as the output. Assets are embedded when the website binary is rebuilt. Generated packages are ignored by server Git. Publication generates `version.js` beside `latest.json`; the website installation commands import that release version. Keep installer defaults and translated documentation aligned, regenerate the SDK reference index and run `node scripts/test-sdk-onboarding.mjs` before deployment. This verifies the displayed version against the staged manifest and every downloadable artifact checksum.
 
 After deployment, verify delivered files against the local manifest. SDK activation and consumption tests run only locally or on the designated test machine. Production release checks only read delivered files and service health.
 

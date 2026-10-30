@@ -69,6 +69,7 @@ type Client struct {
 	listener       atomic.Pointer[statusListener]
 	waitHeartbeat  func(context.Context, time.Duration) bool
 	profile        DeviceProfile
+	deviceDetails  DeviceInfo
 	sessionID      string
 	cfg            Config
 	keys           map[string]ed25519.PublicKey
@@ -115,6 +116,10 @@ func New(cfg Config) (*Client, error) {
 		return nil, err
 	}
 	cfg.DeviceID = device
+	if strings.TrimSpace(cfg.DeviceName) == "" {
+		cfg.DeviceName, _ = os.Hostname()
+		cfg.DeviceName = displayDeviceName(cfg.DeviceName, profile.Platform)
+	}
 	u, e := url.Parse(cfg.BaseURL)
 	if e != nil || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
 		return nil, errors.New("base_url must be an origin")
@@ -159,6 +164,7 @@ func New(cfg Config) (*Client, error) {
 		transport.Proxy = http.ProxyURL(proxy)
 	}
 	c := &Client{cfg: cfg, profile: profile, sessionID: requestUUID(), keys: keys, http: &http.Client{Transport: transport, Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, heartbeat: 3600}
+	c.deviceDetails = machineDisplayDetails()
 	c.loadCredential()
 	c.loadLogoutJournal()
 	if c.denied.Load() || c.logoutJournal.SignedOut {

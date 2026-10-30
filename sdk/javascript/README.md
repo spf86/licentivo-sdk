@@ -13,7 +13,7 @@ Requirements: Node.js 20+; use the desktop main process or a Node service.
 Install the public SDK package in your existing application project:
 
 ```sh
-npm install @licentivo/sdk@0.11.6
+npm install @licentivo/sdk@0.11.7
 ```
 
 No SDK source download, extraction or local path dependency is required.
