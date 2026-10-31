@@ -1,45 +1,57 @@
 {
   "version": "0.11.8",
   "release": "https://github.com/spf86/licentivo-sdk/releases/tag/v0.11.8",
-  "checked_at": "2026-10-31T22:53:16.677841+00:00",
-  "all_six_completed": false,
+  "checked_at": "2026-10-31T23:32:01.052174+00:00",
+  "all_six_completed": true,
   "registry_count": 6,
   "registries": {
     "npm": {
       "version": "0.11.8",
       "url": "https://registry.npmjs.org/@licentivo%2Fsdk/0.11.8",
-      "published": false,
-      "status": "pending_publication"
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.8",
+      "metadata_sha256": "79e33d618d8347425e00961768d3c9731b4dc2ceceece844b152dfcbe43c9ee6"
     },
     "pypi": {
       "version": "0.11.8",
       "url": "https://pypi.org/pypi/licentivo-sdk/0.11.8/json",
-      "published": false,
-      "status": "pending_publication"
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.8",
+      "metadata_sha256": "f8849d4aba46387b71290472264633b7cf85b8c49e0591df30df86f10037239c"
     },
     "nuget": {
       "version": "0.11.8",
       "url": "https://api.nuget.org/v3-flatcontainer/licentivo.sdk/0.11.8/licentivo.sdk.nuspec",
-      "published": false,
-      "status": "pending_publication"
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.8",
+      "metadata_sha256": "3b1e78d95cba116ab7277338d77ff663c63336c0e686a4a89d39c05b79c36078"
     },
     "ruby": {
       "version": "0.11.8",
       "url": "https://rubygems.org/api/v2/rubygems/licentivo-sdk/versions/0.11.8.json",
-      "published": false,
-      "status": "pending_publication"
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.8",
+      "metadata_sha256": "ffed806ec98875f469f0e11e6db6969aa08628f45a7c4849c20d1e6a8e2120ff"
     },
     "crates": {
       "version": "0.11.8",
       "url": "https://crates.io/api/v1/crates/licentivo/0.11.8",
-      "published": false,
-      "status": "pending_publication"
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.8",
+      "metadata_sha256": "0c6081692696129011878eda92680135fce6390ec207859d1126722233a9205f"
     },
     "maven": {
       "version": "0.11.8",
       "url": "https://repo.maven.apache.org/maven2/com/licentivo/licentivo-sdk/0.11.8/licentivo-sdk-0.11.8.pom",
-      "published": false,
-      "status": "pending_publication"
+      "published": true,
+      "http_status": 200,
+      "observed_version": "0.11.8",
+      "metadata_sha256": "2218d3a66af55fabd3f5550005cfc73fde91a36e3abf9f3b34563c97e65282b9"
     }
   }
 }
