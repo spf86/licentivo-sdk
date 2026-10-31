@@ -13,7 +13,7 @@ Requirements: Python 3.10+; Tk for the optional desktop application.
 Install the public SDK package in your existing application project:
 
 ```sh
-python -m pip install "licentivo-sdk==0.11.7"
+python -m pip install "licentivo-sdk==0.11.8"
 ```
 
 No SDK source download, extraction or local path dependency is required.
@@ -57,6 +57,19 @@ and records pending settlement. A known successful job retry settles without
 rerunning business. Persist the actual business result; after a crash during a
 callback, inspect its outcome and pass the truth to `resolve_metered_feature`. The SDK does not
 guess or replay an uncertain business action. Metering requires a network.
+
+The Python SDK keeps a pending reservation alive while the callback runs by
+repeating the original reserve request, so a job can exceed the default 15-minute
+hold. This requires the matching server update; expired reservations and UTC
+usage-period boundaries cannot be extended. If connectivity is lost until expiry,
+settlement can remain pending; the SDK retains the completed outcome and never
+reruns the callback.
+
+Processes sharing a job must use the same persistent cache path. The SDK locks
+that job's journal across processes and rejects concurrent execution or resolution.
+After `fork`, create a new `Client` in each child; an inherited client's thread
+and session state cannot be reused for metered tasks. Keep the journal and its
+`.lock` file in place while workers are running. A process exit releases the lock.
 
 The lower-level reserve/commit/cancel and immediate-consume methods remain
 available. Offline request/response files are a separate disconnected-computer

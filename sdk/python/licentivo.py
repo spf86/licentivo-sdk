@@ -89,7 +89,7 @@ def extended_claims(c):
     if 'capabilities' not in c: return
     x=c['capabilities'];allowed={'license_model','session_id','session_expires_at','app_version','version_released_at','maintenance_until','launch_connection_id','environment','binding_version'}
     if not isinstance(x,dict) or set(x)-allowed or x.get('license_model') not in ['node_locked','floating']: raise ValueError('invalid license capabilities')
-    if any(k in x for k in ['launch_connection_id','environment','binding_version']) and (not UUID.fullmatch(x.get('launch_connection_id','')) or x.get('environment') not in ['live','sandbox'] or type(x.get('binding_version')) is not int or x['binding_version']<1 or x['license_model']!='node_locked' or not UUID.fullmatch(x.get('session_id','')) or x.get('session_expires_at',0)<=c['issued_at'] or c['expires_at']>x['session_expires_at'] or c.get('runtime_policy',{}).get('heartbeat_seconds',0)<600 or policy_mode(c)=='permanent' or c['runtime_policy']['offline_seconds']>86400): raise ValueError('invalid Launch account session')
+    if any(k in x for k in ['launch_connection_id','environment','binding_version']) and (not UUID.fullmatch(x.get('launch_connection_id','')) or x.get('environment') not in ['live','sandbox'] or type(x.get('binding_version')) is not int or x['binding_version']<1 or not UUID.fullmatch(x.get('session_id','')) or x.get('session_expires_at',0)<=c['issued_at'] or c['expires_at']>x['session_expires_at'] or c.get('runtime_policy',{}).get('heartbeat_seconds',0)<600 or policy_mode(c)=='permanent' or c['runtime_policy']['offline_seconds']>86400): raise ValueError('invalid Launch account session')
     for field in ['session_expires_at','version_released_at','maintenance_until']:
         if field in x and (type(x[field]) is not int or not 0<=x[field]<=253402300799): raise ValueError('invalid entitlement date')
     if 'app_version' in x and (not isinstance(x['app_version'],str) or not re.fullmatch(r'(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})',x['app_version'])): raise ValueError('invalid application version')
@@ -187,6 +187,7 @@ def _machine_display_details():
 class Client:
     def __init__(self, config):
         self.feature_task_lock = threading.Lock()
+        self.feature_task_pid = os.getpid()
         self.config=dict(config); self.config.setdefault('license_key',''); self.config['base_url']=(self.config.get('base_url') or 'https://www.licentivo.com').rstrip('/');
         if not self.config.get('cache_path'): self.config['cache_path']=str(Path(os.environ.get('LOCALAPPDATA') or os.environ.get('XDG_CACHE_HOME') or str(Path.home()/'.cache'))/'Licentivo'/hashlib.sha256((self.config['base_url']+'\n'+self.config['product_id']).encode()).hexdigest()/'lease.json')
         self.profile,self.config['device_id']=machine_profile(config['product_id']); self.session_id=str(uuid.uuid4()); config=self.config; u=urllib.parse.urlsplit(config['base_url'])
@@ -253,7 +254,7 @@ class Client:
         licentivo_logout.accept_login(self, result.get('logout_ticket'), APIError)
         if result.get('logout_ticket'):
             self._prepare_credential();self.auth['logout_ticket']=result['logout_ticket'];self.auth_dirty=True;self._save_credential()
-        if not self._temporary() or self.auth and self.auth.get('device_key'): return
+        if not self._temporary() or self.auth and self.auth.get('device_key') and not result.get('device_key'): return
         if not re.fullmatch(r'lv_dev_[A-Za-z0-9_-]{43}',result.get('device_key','')):
             if not self.config['license_key'].startswith('lv_tmp_') and not self.config.get('identity_token'): return
             raise ValueError('server omitted device credential')

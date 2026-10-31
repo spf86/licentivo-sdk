@@ -46,7 +46,7 @@ final class DeviceCredential {
         if(dirty)save();
     }
     void accept(Map<String,Object> result,String session)throws Exception {
-        if(result.get("logout_ticket") instanceof Map){prepare(session);state.put("logout_ticket",result.get("logout_ticket"));dirty=true;save();}if(!temporary()||state!=null&&!Json.text(state,"device_key").isEmpty())return;
+        if(result.get("logout_ticket") instanceof Map){prepare(session);state.put("logout_ticket",result.get("logout_ticket"));dirty=true;save();}if(!temporary()||state!=null&&!Json.text(state,"device_key").isEmpty()&&((String)result.getOrDefault("device_key","")).isEmpty())return;
         String key=(String)result.getOrDefault("device_key","");if(!key.matches("lv_dev_[A-Za-z0-9_-]{43}")){if(!Json.text(cfg,"license_key").startsWith("lv_tmp_")&&Json.text(cfg,"identity_token").isEmpty())return;throw new IllegalArgumentException("server omitted device credential");}
         prepare(session);state.put("device_key",key);dirty=true;save();
     }

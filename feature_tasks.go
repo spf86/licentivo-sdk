@@ -25,7 +25,35 @@ func (c *Client) taskPath(id string) (string, error) {
 	if id == "" || len(id) > 80 || strings.IndexFunc(id, func(r rune) bool { return r < 33 || r > 126 }) >= 0 {
 		return "", errors.New("a stable operationID of 1-80 non-whitespace ASCII characters is required")
 	}
-	return c.cfg.CachePath + ".task-" + licenseHash(c.cacheLicenseHash()+"\n"+id) + ".json", nil
+	c.mu.Lock()
+	source := c.cacheLicenseHash()
+	legacy := c.cfg.CachePath + ".task-" + licenseHash(source+"\n"+id) + ".json"
+	if c.cfg.LaunchConnectionID != "" {
+		claims, err := c.check()
+		if err != nil {
+			c.mu.Unlock()
+			return "", err
+		}
+		// Assertions, device credentials and floating instance IDs can rotate.
+		// The verified entitlement identity remains stable across those changes.
+		source = licenseHash("LicentivoTask/v2\n" + c.cfg.BaseURL + "\n" + claims.ProductID + "\n" + claims.LicenseID + "\n" + claims.DeviceID)
+	}
+	c.mu.Unlock()
+	path := c.cfg.CachePath + ".task-" + licenseHash(source+"\n"+id) + ".json"
+	// Upgrade a journal whose original source is still available. Never guess
+	// ownership from an operation ID shared by unrelated accounts.
+	if path != legacy {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if _, err = os.Stat(legacy); err == nil {
+				if err = os.Rename(legacy, path); err != nil {
+					return "", err
+				}
+			} else if !os.IsNotExist(err) {
+				return "", err
+			}
+		}
+	}
+	return path, nil
 }
 func readFeatureTask(path, id string) (featureTask, error) {
 	var task featureTask
@@ -66,6 +94,33 @@ func saveFeatureTask(path string, task featureTask) error {
 		return err
 	}
 	return os.Rename(f.Name(), path)
+}
+
+// Keep the original hold alive independently of caller cancellation: the
+// business action may already have performed work. Only its result settles it.
+func (c *Client) keepFeatureReservation(ctx context.Context, feature string, quantity int64, id string, hold Reservation) func() {
+	ctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		until, interval := hold.ExpiresAt, time.Minute
+		for {
+			remaining := time.Until(until)
+			if remaining <= 0 || !waitHeartbeat(ctx, min(interval, max(10*time.Millisecond, remaining/3))) {
+				return
+			}
+			renewed, err := c.Reserve(ctx, feature, quantity, id)
+			if err != nil {
+				interval = 5 * time.Second
+				continue
+			}
+			if renewed.ID != hold.ID || renewed.OperationID != id || renewed.Status != "pending" {
+				return
+			}
+			until, interval = renewed.ExpiresAt, time.Minute
+		}
+	}()
+	return func() { cancel(); <-done }
 }
 
 // RunMeteredFeature reserves, runs the business action, and commits/cancels.
@@ -130,14 +185,19 @@ func (c *Client) RunMeteredFeature(ctx context.Context, feature string, quantity
 	}
 	// Network and journal I/O can outlive either permission. Check both at the
 	// business boundary, then preserve the failed outcome if either has expired.
+	stopRenewal := func() {}
+	defer func() { stopRenewal() }()
 	if businessErr := c.RunFeature(feature, func() error {
 		if !hold.ExpiresAt.After(time.Now()) {
 			return errors.New("reservation expired; the business action was not run")
 		}
+		stopRenewal = c.keepFeatureReservation(ctx, feature, quantity, operationID, hold)
 		return action()
 	}); businessErr != nil {
 		task.State = "cancel_pending"
-		if err = saveFeatureTask(path, task); err == nil {
+		err = saveFeatureTask(path, task)
+		stopRenewal()
+		if err == nil {
 			err = c.finishFeatureTask(ctx, path, task, false)
 		}
 		return errors.Join(businessErr, err)
@@ -146,6 +206,7 @@ func (c *Client) RunMeteredFeature(ctx context.Context, feature string, quantity
 	if err = saveFeatureTask(path, task); err != nil {
 		return fmt.Errorf("business completed; task journal update failed; do not repeat operation %s: %w", operationID, err)
 	}
+	stopRenewal()
 	return c.finishFeatureTask(ctx, path, task, true)
 }
 

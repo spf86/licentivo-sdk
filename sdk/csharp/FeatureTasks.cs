@@ -12,7 +12,22 @@ public sealed partial class LicentivoClient
     {
         if (string.IsNullOrEmpty(id) || id.Length > 80 || id.Any(ch => ch < 33 || ch > 126))
             throw new ArgumentException("a stable operationID of 1-80 non-whitespace ASCII characters is required");
-        return config.CachePath + ".task-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(CacheHash + "\n" + id))).ToLowerInvariant() + ".json";
+        string source = CacheHash;
+        string legacy = config.CachePath + ".task-" + Hash(source + "\n" + id) + ".json";
+        if (config.LaunchConnectionId != "")
+        {
+            mutex.Wait();
+            try
+            {
+                Check();
+                using var payload = Parse(Decode(cached!.Value.GetProperty("payload").GetString()!));
+                source = Hash("LicentivoTask/v2\n" + config.BaseUrl + "\n" + config.ProductId + "\n" + payload.RootElement.GetProperty("license_id").GetString() + "\n" + config.DeviceId);
+            }
+            finally { mutex.Release(); }
+        }
+        string path = config.CachePath + ".task-" + Hash(source + "\n" + id) + ".json";
+        if (path != legacy && !File.Exists(path) && File.Exists(legacy)) File.Move(legacy, path);
+        return path;
     }
     private static FeatureTask ReadTask(string path, string id)
     {
@@ -48,6 +63,26 @@ public sealed partial class LicentivoClient
         if (hold.Status != expected && (succeeded || hold.Status != "expired")) throw new InvalidOperationException("reservation closed without requested outcome; do not repeat business");
         SaveTask(path, task with { State = expected });
     }
+    private async Task RenewFeatureReservation(FeatureTask task, Reservation hold, CancellationToken stop)
+    {
+        var until = hold.ExpiresAt;
+        var interval = TimeSpan.FromMinutes(1);
+        while (!stop.IsCancellationRequested)
+        {
+            var remaining = until - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.Zero) return;
+            try { await Task.Delay(TimeSpan.FromMilliseconds(Math.Min(interval.TotalMilliseconds, Math.Max(10, remaining.TotalMilliseconds / 3))), stop); }
+            catch (OperationCanceledException) { return; }
+            try
+            {
+                var renewed = await Reserve(task.Feature, task.Quantity, task.OperationId, stop);
+                if (renewed.Status != "pending" || renewed.ReservationId != hold.ReservationId || renewed.OperationId != task.OperationId) return;
+                until = renewed.ExpiresAt;
+                interval = TimeSpan.FromMinutes(1);
+            }
+            catch (Exception) { if (stop.IsCancellationRequested) return; interval = TimeSpan.FromSeconds(5); }
+        }
+    }
     /// <summary>Reserve, run the business callback, then commit/cancel. A pending commit never reruns business.</summary>
     public async Task RunMeteredFeature(string feature, long quantity, string operationID, Func<Task> action, CancellationToken ct = default)
     {
@@ -73,20 +108,29 @@ public sealed partial class LicentivoClient
             task = task with { ReservationId = hold.ReservationId, State = "business_running" };
             try { SaveTask(path, task); }
             catch { try { await Cancel(hold.ReservationId, operationID, ct); } catch { } throw; }
+            using var renewalStop = new CancellationTokenSource();
+            Task renewal = Task.CompletedTask;
+            try
+            {
             try { await RunFeature(feature, async () => {
                 if (hold.ExpiresAt <= DateTimeOffset.UtcNow) throw new InvalidOperationException("reservation expired; business was not run");
+                renewal = RenewFeatureReservation(task, hold, renewalStop.Token);
                 await action();
             }); }
             catch
             {
                 task = task with { State = "cancel_pending" };
-                try { SaveTask(path, task); await FinishTask(path, task, false, ct); } catch { }
+                try { SaveTask(path, task); renewalStop.Cancel(); await renewal; await FinishTask(path, task, false, ct); } catch { }
                 throw;
             }
             task = task with { State = "commit_pending" };
             try { SaveTask(path, task); }
             catch (Exception error) { throw new IOException($"business completed; journal update failed; do not repeat operation {operationID}", error); }
+            renewalStop.Cancel();
+            await renewal;
             await FinishTask(path, task, true, ct);
+            }
+            finally { renewalStop.Cancel(); await renewal; }
         }
         finally { featureTaskMutex.Release(); }
     }

@@ -1,10 +1,19 @@
 import {createHash,randomUUID} from 'node:crypto';
-import {readFileSync,writeFileSync,renameSync,unlinkSync,mkdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,renameSync,unlinkSync,mkdirSync,existsSync} from 'node:fs';
 import {dirname} from 'node:path';
+import {setTimeout as delay} from 'node:timers/promises';
 
 function taskPath(client, id) {
   if(typeof id !== 'string' || !/^[\x21-\x7e]{1,80}$/.test(id)) throw Error('a stable operationID of 1-80 non-whitespace ASCII characters is required');
-  return client.cfg.cache_path + '.task-' + createHash('sha256').update(client.hash()+'\n'+id).digest('hex') + '.json';
+  let source=client.hash();
+  const legacy=client.cfg.cache_path+'.task-'+createHash('sha256').update(source+'\n'+id).digest('hex')+'.json';
+  if(client.cfg.launch_connection_id){
+    const claims=client.check();
+    source=createHash('sha256').update('LicentivoTask/v2\n'+client.cfg.base_url+'\n'+claims.product_id+'\n'+claims.license_id+'\n'+claims.device_id).digest('hex');
+  }
+  const path=client.cfg.cache_path + '.task-' + createHash('sha256').update(source+'\n'+id).digest('hex') + '.json';
+  if(path!==legacy&&!existsSync(path)&&existsSync(legacy))renameSync(legacy,path);
+  return path;
 }
 function read(path,id) {
   let raw;
@@ -27,10 +36,27 @@ async function finish(client,path,task,succeeded) {
   if(receipt.status!==expected && (succeeded || receipt.status!=='expired'))throw Error('reservation closed without the requested outcome; do not repeat business');
   task.state=expected;save(path,task);
 }
+function keepReservation(client,feature,quantity,id,hold) {
+  const controller=new AbortController();
+  const done=(async()=>{
+    let until=Date.parse(hold.expires_at),interval=60000;
+    while(Number.isFinite(until)&&until>Date.now()){
+      try{await delay(Math.min(interval,Math.max(10,(until-Date.now())/3)),undefined,{signal:controller.signal});}
+      catch{return;}
+      try{
+        const renewed=await client.reserve(feature,quantity,id,controller.signal);
+        if(renewed.status!=='pending'||renewed.reservation_id!==hold.reservation_id||renewed.operation_id!==id)return;
+        until=Date.parse(renewed.expires_at);interval=60000;
+      }catch{if(controller.signal.aborted)return;interval=5000;}
+    }
+  })();
+  return async()=>{controller.abort();await done;};
+}
 export async function runMetered(client,feature,quantity,id,action) {
   if(typeof action!=='function' || !Number.isSafeInteger(quantity) || quantity<=0)throw Error('business action and positive integer quantity are required');
   if(client.featureTaskBusy)throw Error('another feature task is running');
   client.featureTaskBusy=true;
+  let stopRenewal=async()=>{};
   try{
     const path=taskPath(client,id),task=read(path,id);
     if(task.state && (task.feature!==feature || task.quantity!==quantity))throw Error('operation ID was already used for another feature or quantity');
@@ -50,12 +76,14 @@ export async function runMetered(client,feature,quantity,id,action) {
     try{await client.runFeature(feature,async()=>{
       const deadline=Date.parse(hold.expires_at);
       if(!Number.isFinite(deadline) || deadline<=Date.now())throw Error('reservation expired; business was not run');
+      stopRenewal=keepReservation(client,feature,quantity,id,hold);
       return await action();
-    });}catch(error){task.state='cancel_pending';try{save(path,task);await finish(client,path,task,false);}catch{}throw error;}
+    });}catch(error){task.state='cancel_pending';try{save(path,task);await stopRenewal();await finish(client,path,task,false);}catch{}throw error;}
     task.state='commit_pending';
     try{save(path,task);}catch(error){throw Error(`business completed; journal update failed; do not repeat operation ${id}`,{cause:error});}
+    await stopRenewal();
     await finish(client,path,task,true);
-  }finally{client.featureTaskBusy=false;}
+  }finally{try{await stopRenewal();}finally{client.featureTaskBusy=false;}}
 }
 export async function resolveMetered(client,id,succeeded) {
   if(client.featureTaskBusy)throw Error('another feature task is running');

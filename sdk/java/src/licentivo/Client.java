@@ -18,9 +18,15 @@ public final class Client implements AutoCloseable {
     private final LogoutJournal logoutJournal;private volatile boolean signedOut,closed;private Thread logoutRecovery;
     private FeatureTasks featureTasks;
     private synchronized FeatureTasks featureTasks() throws Exception {
-        if(featureTasks==null)featureTasks=new FeatureTasks(this,cachePath(),hash());
+        if(featureTasks==null)featureTasks=new FeatureTasks(this,cachePath());
         return featureTasks;
     }
+    synchronized String taskSource() throws Exception {
+        if(Json.text(cfg,"launch_connection_id").isEmpty())return hash();
+        var claims=check();
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(("LicentivoTask/v2\n"+Json.text(cfg,"base_url")+"\n"+Json.text(claims,"product_id")+"\n"+Json.text(claims,"license_id")+"\n"+Json.text(claims,"device_id")).getBytes(StandardCharsets.UTF_8)));
+    }
+    synchronized String legacyTaskSource() throws Exception {return hash();}
     public void runMeteredFeature(String feature,long quantity,String operationID,FeatureAction action) throws Exception {featureTasks().run(feature,quantity,operationID,action);}
     public void resolveMeteredFeature(String operationID,boolean succeeded) throws Exception {featureTasks().resolve(operationID,succeeded);}
     @FunctionalInterface public interface FeatureAction { void run() throws Exception; }

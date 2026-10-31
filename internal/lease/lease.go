@@ -149,7 +149,7 @@ func Verify(e Envelope, keys map[string]ed25519.PublicKey, product, device strin
 	}
 	if x := c.Capabilities; x != nil {
 		if x.LaunchConnectionID != "" || x.Environment != "" || x.BindingVersion != 0 {
-			if !validID(x.LaunchConnectionID) || x.Environment != "live" && x.Environment != "sandbox" || x.BindingVersion < 1 || x.LicenseModel != "node_locked" || !validID(x.SessionID) || x.SessionExpiresAt <= c.IssuedAt || c.ExpiresAt > x.SessionExpiresAt || c.RuntimePolicy == nil || c.RuntimePolicy.HeartbeatSeconds < 600 || c.OfflineMode() == "permanent" || c.RuntimePolicy.OfflineSeconds > 86400 {
+			if !validID(x.LaunchConnectionID) || x.Environment != "live" && x.Environment != "sandbox" || x.BindingVersion < 1 || !validID(x.SessionID) || x.SessionExpiresAt <= c.IssuedAt || c.ExpiresAt > x.SessionExpiresAt || c.RuntimePolicy == nil || c.RuntimePolicy.HeartbeatSeconds < 600 || c.OfflineMode() == "permanent" || c.RuntimePolicy.OfflineSeconds > 86400 {
 				return c, errors.New("invalid Launch account session")
 			}
 		}

@@ -1,0 +1,45 @@
+{
+  "version": "0.11.8",
+  "release": "https://github.com/spf86/licentivo-sdk/releases/tag/v0.11.8",
+  "checked_at": "2026-10-31T22:53:16.677841+00:00",
+  "all_six_completed": false,
+  "registry_count": 6,
+  "registries": {
+    "npm": {
+      "version": "0.11.8",
+      "url": "https://registry.npmjs.org/@licentivo%2Fsdk/0.11.8",
+      "published": false,
+      "status": "pending_publication"
+    },
+    "pypi": {
+      "version": "0.11.8",
+      "url": "https://pypi.org/pypi/licentivo-sdk/0.11.8/json",
+      "published": false,
+      "status": "pending_publication"
+    },
+    "nuget": {
+      "version": "0.11.8",
+      "url": "https://api.nuget.org/v3-flatcontainer/licentivo.sdk/0.11.8/licentivo.sdk.nuspec",
+      "published": false,
+      "status": "pending_publication"
+    },
+    "ruby": {
+      "version": "0.11.8",
+      "url": "https://rubygems.org/api/v2/rubygems/licentivo-sdk/versions/0.11.8.json",
+      "published": false,
+      "status": "pending_publication"
+    },
+    "crates": {
+      "version": "0.11.8",
+      "url": "https://crates.io/api/v1/crates/licentivo/0.11.8",
+      "published": false,
+      "status": "pending_publication"
+    },
+    "maven": {
+      "version": "0.11.8",
+      "url": "https://repo.maven.apache.org/maven2/com/licentivo/licentivo-sdk/0.11.8/licentivo-sdk-0.11.8.pom",
+      "published": false,
+      "status": "pending_publication"
+    }
+  }
+}

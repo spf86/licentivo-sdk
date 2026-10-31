@@ -166,7 +166,7 @@ static int advanced_claims(const cJSON*c){
  if(get(x,"app_version")&&!app_version(text(x,"app_version")))return 0;
  if(!num(c,"issued_at",&issued)||!num(c,"expires_at",&expires))return 0;
  const cJSON*policy=get(c,"runtime_policy");int64_t heartbeat=0;if(!strcmp(model,"floating")&&(!uuid(text(x,"session_id"))||session<=issued||expires>session||!num(policy,"heartbeat_seconds",&heartbeat)||heartbeat==0||!strcmp(text(policy,"offline_mode")?text(policy,"offline_mode"):"","permanent")))return 0;
- if(get(x,"launch_connection_id")||get(x,"environment")||get(x,"binding_version")){int64_t binding=0,h=0,o=0;const char*env=text(x,"environment"),*mode=text(policy,"offline_mode");if(!uuid(text(x,"launch_connection_id"))||!env||(strcmp(env,"live")&&strcmp(env,"sandbox"))||!num(x,"binding_version",&binding)||binding<1||strcmp(model,"node_locked")||!uuid(text(x,"session_id"))||session<=issued||expires>session||!num(policy,"heartbeat_seconds",&h)||h<600||!mode||!strcmp(mode,"permanent")||!num(policy,"offline_seconds",&o)||o>86400)return 0;}
+ if(get(x,"launch_connection_id")||get(x,"environment")||get(x,"binding_version")){int64_t binding=0,h=0,o=0;const char*env=text(x,"environment"),*mode=text(policy,"offline_mode");if(!uuid(text(x,"launch_connection_id"))||!env||(strcmp(env,"live")&&strcmp(env,"sandbox"))||!num(x,"binding_version",&binding)||binding<1||!uuid(text(x,"session_id"))||session<=issued||expires>session||!num(policy,"heartbeat_seconds",&h)||h<600||!mode||!strcmp(mode,"permanent")||!num(policy,"offline_seconds",&o)||o>86400)return 0;}
  if(released>issued||(maintenance>0&&(!text(x,"app_version")||released==0||released>maintenance)))return 0;
  return 1;
 }
@@ -419,7 +419,7 @@ static int prepare_credential(ln_client*c){
 static int accept_credential(ln_client*c,const cJSON*result){
  if(logout_binding_blocked(c,result))return 0;
  if(cJSON_IsTrue(get(c->logout_state,"signed_out"))){cJSON_ReplaceItemInObjectCaseSensitive(c->logout_state,"signed_out",cJSON_CreateBool(0));if(!save_logout_state(c))return 0;}
- if(get(result,"logout_ticket")){if(!prepare_credential(c))return 0;cJSON_DeleteItemFromObjectCaseSensitive(c->auth,"logout_ticket");cJSON_AddItemToObject(c->auth,"logout_ticket",cJSON_Duplicate(get(result,"logout_ticket"),1));c->auth_dirty=1;if(!save_credential(c))return 0;}if(!temporary(c)||(text(c->auth,"device_key")&&text(c->auth,"device_key")[0]))return 1;
+ if(get(result,"logout_ticket")){if(!prepare_credential(c))return 0;cJSON_DeleteItemFromObjectCaseSensitive(c->auth,"logout_ticket");cJSON_AddItemToObject(c->auth,"logout_ticket",cJSON_Duplicate(get(result,"logout_ticket"),1));c->auth_dirty=1;if(!save_credential(c))return 0;}if(!temporary(c)||(text(c->auth,"device_key")&&text(c->auth,"device_key")[0]&&(!text(result,"device_key")||!text(result,"device_key")[0])))return 1;
  const char*k=text(result,"device_key");if(!credential_secret(k,"lv_dev_")){if(strncmp(text(c->cfg,"license_key"),"lv_tmp_",7)&&!(text(c->cfg,"identity_token")&&text(c->cfg,"identity_token")[0]))return 1;strcpy(c->error,"DEVICE_CREDENTIAL_MISSING");return 0;}if(!prepare_credential(c))return 0;cJSON_ReplaceItemInObjectCaseSensitive(c->auth,"device_key",cJSON_CreateString(k));c->auth_dirty=1;return save_credential(c);
 }
 struct buffer{char data[LIMIT+1];size_t size;int oversized;};

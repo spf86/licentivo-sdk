@@ -6,6 +6,10 @@ Distribute one SDK version through its public language registries, GitHub Releas
 
 Update VERSION and all package metadata together. `build-release.py` checks every language version and the standalone Go module. Export this client-only repository using the server workspace's `scripts/export-sdk.py`; never publish the server checkout or private configured examples.
 
+In the server workspace, `sdk/VERSION` is the source for current Markdown installation versions. Run `node scripts/sync-sdk-docs.mjs` to synchronize the server README, SDK READMEs, quickstarts and installation/support guides before exporting. The command also generates `sdk/release/docs/releases/VERSION-links.json` from the core SDK entries in `web/assets/sdk/registry-status.json`, retaining the recorded verification time and results. Record the matching version's verified or pending status for all six registries first; the command rejects records for a different version and never queries or publishes a registry. Historical release notes and older publication snapshots remain unchanged.
+
+Run `node scripts/test-documentation.mjs` and `node scripts/test-locales.mjs` after synchronization. CI checks current installation versions and publication evidence, all Markdown links and API references, OpenAPI/schema consistency and locale catalogs. `node scripts/sync-sdk-docs.mjs --check` checks just the generated SDK documentation without writing files.
+
 Build in separate empty directories:
 
 ```bash
@@ -37,7 +41,7 @@ python scripts/publish-website.py --packages dist --output WEBSITE_ASSETS/sdk
 
 This creates `releases/vVERSION/`, manifest/checksums, stable installers and `latest.json`. Published versions are immutable: changed bytes require a new version, and latest cannot move backwards. Staging performs no network request. Deploy through the website's existing procedure after consumer checks and a recoverable backup.
 
-In the Licentivo server workspace, use `web/assets/sdk` as the output. Assets are embedded when the website binary is rebuilt. Generated packages are ignored by server Git. Publication generates `version.js` beside `latest.json`; the website installation commands import that release version. Keep installer defaults and translated documentation aligned, regenerate the SDK reference index and run `node scripts/test-sdk-onboarding.mjs` before deployment. This verifies the displayed version against the staged manifest and every downloadable artifact checksum.
+In the Licentivo server workspace, use `web/assets/sdk` as the output. Deploy that frontend directory together with the matching backend; frontend files are served from disk. Publication generates `version.js` beside `latest.json`; the website installation commands import that release version. Keep installer defaults and translated documentation aligned, regenerate the SDK reference index and run `node scripts/test-sdk-onboarding.mjs` before deployment. This verifies the displayed version against the staged manifest and every downloadable artifact checksum.
 
 After deployment, verify delivered files against the local manifest. SDK activation and consumption tests run only locally or on the designated test machine. Production release checks only read delivered files and service health.
 

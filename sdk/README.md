@@ -15,17 +15,17 @@ described in [EXAMPLE.md](../EXAMPLE.md).
 
 Use the public package manager for your language. Run the command in your own
 application project; no source download, extraction or local path override is
-needed. All commands below select SDK 0.11.7.
+needed. All commands below select SDK 0.11.8.
 
 | Language | Install |
 | --- | --- |
-| Go | `go get github.com/spf86/licentivo-sdk@v0.11.7` |
-| Python | `python -m pip install "licentivo-sdk==0.11.7"` |
-| Node.js | `npm install @licentivo/sdk@0.11.7` |
-| C# | `dotnet add package Licentivo.SDK --version 0.11.7` |
-| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.7'` with Maven Central enabled; [Maven configuration](java/README.md) |
-| Rust | `cargo add licentivo@=0.11.7` |
-| Ruby | `gem install licentivo-sdk --version 0.11.7` |
+| Go | `go get github.com/spf86/licentivo-sdk@v0.11.8` |
+| Python | `python -m pip install "licentivo-sdk==0.11.8"` |
+| Node.js | `npm install @licentivo/sdk@0.11.8` |
+| C# | `dotnet add package Licentivo.SDK --version 0.11.8` |
+| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.8'` with Maven Central enabled; [Maven configuration](java/README.md) |
+| Rust | `cargo add licentivo@=0.11.8` |
+| Ruby | `gem install licentivo-sdk --version 0.11.8` |
 | C / C++ | Use the [automatic native package installer](https://www.licentivo.com/en/docs.html#sdk), then link `Licentivo::C` / `Licentivo::CPP`. |
 
 Package installation installs the common library. Product ID and trusted public
@@ -84,7 +84,7 @@ Go 1.26+, Java 17+, .NET 8+, Python 3.10+, Node.js 20+, Rust 1.77+ and Ruby 3.1+
 are supported. C/C++ use C11/C++17, CMake and libcurl development files. Rust and
 Ruby share that native core; on Windows use GNU/MinGW and matching libcurl, with
 LICENTIVO_CURL_ROOT set for native builds. Python desktop examples require Tk.
-SDK version: 0.11.7. Use the pinned package manager commands above.
+SDK version: 0.11.8. Use the pinned package manager commands above.
 
 Online errors expose a code and, when available, request ID/retry information.
 Present the reason to the user. Local status does not guarantee a later network
@@ -119,3 +119,26 @@ error in native wrappers), denies this instance immediately and still attempts
 remote revocation. Applications must handle that persistence failure.
 
 Account and session contracts: [Launch account licensing](https://www.licentivo.com/en/openapi.json).
+
+Launch account entitlements support both node-locked and floating policies with
+the matching server implementation. A floating permission retains the running
+instance's session ID, and expires by the earlier seat or account deadline.
+Ordinary close returns its seat; explicit logout revokes its account binding.
+
+In account mode, metered task journals are scoped to the verified license,
+product, device and service origin. Renewing a Launch assertion or restarting a
+floating instance preserves the original task. Keep the same cache path and
+operation ID: pending settlement never runs business again, and an unknown
+business outcome requires `ResolveMeteredFeature` (or its language equivalent).
+All nine bindings renew an unexpired pending reservation while business is
+running, keeping the same operation ID, reservation ID and quantity. The default
+hold remains 900 seconds; renewal does not reserve or charge additional units.
+The actual callback outcome is retained in the task journal.
+A failed or lost settlement response retains `commit_pending` or `cancel_pending`;
+recovery settles the original reservation without invoking business again.
+Renewal cannot revive an expired hold or cross its original UTC usage period.
+JavaScript callbacks must leave the event loop responsive: await asynchronous
+work and run lengthy CPU work in a worker thread so heartbeats can run.
+Legacy journals can be upgraded while their original source credential remains
+available. Retain that credential/cache and resolve outstanding legacy work
+before replacing the account login; never infer journal ownership from a job ID.

@@ -628,6 +628,123 @@
       "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "now": 1791244900,
       "valid": false
+    },
+    {
+      "name": "valid_launch_floating",
+      "envelope": {
+        "version": 1,
+        "key_id": "11111111-1111-4111-8111-111111111111",
+        "payload": "eyJ2ZXJzaW9uIjoxLCJrZXlfaWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIiLCJwcm9kdWN0X2lkIjoiMzMzMzMzMzMtMzMzMy00MzMzLTgzMzMtMzMzMzMzMzMzMzMzIiwibGljZW5zZV9pZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsImRldmljZV9pZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJhY3RpdmF0aW9uX2lkIjoiNTU1NTU1NTUtNTU1NS00NTU1LTg1NTUtNTU1NTU1NTU1NTU1IiwibW9kZSI6InRpbWVkIiwiZmVhdHVyZXMiOlsiZXhwb3J0IiwicHJvIl0sIm1heF9kZXZpY2VzIjoyLCJpc3N1ZWRfYXQiOjE3OTEyNDQ4MDAsImV4cGlyZXNfYXQiOjE3OTEyNDY2MDAsInJ1bnRpbWVfcG9saWN5Ijp7Im9mZmxpbmVfbW9kZSI6ImxpbWl0ZWQiLCJoZWFydGJlYXRfc2Vjb25kcyI6NjAwLCJvZmZsaW5lX3NlY29uZHMiOjE4MDB9LCJjYXBhYmlsaXRpZXMiOnsibGljZW5zZV9tb2RlbCI6ImZsb2F0aW5nIiwic2Vzc2lvbl9pZCI6IjY2NjY2NjY2LTY2NjYtNDY2Ni04NjY2LTY2NjY2NjY2NjY2NiIsInNlc3Npb25fZXhwaXJlc19hdCI6MTc5MTI0NjYwMCwibGF1bmNoX2Nvbm5lY3Rpb25faWQiOiI3Nzc3Nzc3Ny03Nzc3LTQ3NzctODc3Ny03Nzc3Nzc3Nzc3NzciLCJlbnZpcm9ubWVudCI6ImxpdmUiLCJiaW5kaW5nX3ZlcnNpb24iOjF9fQ",
+        "signature": "h_7gb1VDfvnruVpF7SiICh_RFlkPlvrVjGu3cFaPZGGO91FjLRloRK_lwlQRoS4y-Q6MBs8S4-FHY3pHLd71CQ"
+      },
+      "product_id": "33333333-3333-4333-8333-333333333333",
+      "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "now": 1791244900,
+      "valid": true
+    },
+    {
+      "name": "valid_launch_floating_online",
+      "envelope": {
+        "version": 1,
+        "key_id": "11111111-1111-4111-8111-111111111111",
+        "payload": "eyJ2ZXJzaW9uIjoxLCJrZXlfaWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIiLCJwcm9kdWN0X2lkIjoiMzMzMzMzMzMtMzMzMy00MzMzLTgzMzMtMzMzMzMzMzMzMzMzIiwibGljZW5zZV9pZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsImRldmljZV9pZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJhY3RpdmF0aW9uX2lkIjoiNTU1NTU1NTUtNTU1NS00NTU1LTg1NTUtNTU1NTU1NTU1NTU1IiwibW9kZSI6InRpbWVkIiwiZmVhdHVyZXMiOlsiZXhwb3J0IiwicHJvIl0sIm1heF9kZXZpY2VzIjoyLCJpc3N1ZWRfYXQiOjE3OTEyNDQ4MDAsImV4cGlyZXNfYXQiOjE3OTEyNDU0MDAsInJ1bnRpbWVfcG9saWN5Ijp7Im9mZmxpbmVfbW9kZSI6Im5vbmUiLCJoZWFydGJlYXRfc2Vjb25kcyI6NjAwLCJvZmZsaW5lX3NlY29uZHMiOjB9LCJjYXBhYmlsaXRpZXMiOnsibGljZW5zZV9tb2RlbCI6ImZsb2F0aW5nIiwic2Vzc2lvbl9pZCI6IjY2NjY2NjY2LTY2NjYtNDY2Ni04NjY2LTY2NjY2NjY2NjY2NiIsInNlc3Npb25fZXhwaXJlc19hdCI6MTc5MTI0NjYwMCwibGF1bmNoX2Nvbm5lY3Rpb25faWQiOiI3Nzc3Nzc3Ny03Nzc3LTQ3NzctODc3Ny03Nzc3Nzc3Nzc3NzciLCJlbnZpcm9ubWVudCI6ImxpdmUiLCJiaW5kaW5nX3ZlcnNpb24iOjF9fQ",
+        "signature": "2Drel_Af5bd4asSj94rRnNpfIFM5xbdOcwozDBx0UWAWRRkDCIC9z0v2ToaScqg_5ccIHY-qIZckCkQDot7tDQ"
+      },
+      "product_id": "33333333-3333-4333-8333-333333333333",
+      "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "now": 1791244900,
+      "valid": true
+    },
+    {
+      "name": "launch_floating_missing_session",
+      "envelope": {
+        "version": 1,
+        "key_id": "11111111-1111-4111-8111-111111111111",
+        "payload": "eyJ2ZXJzaW9uIjoxLCJrZXlfaWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIiLCJwcm9kdWN0X2lkIjoiMzMzMzMzMzMtMzMzMy00MzMzLTgzMzMtMzMzMzMzMzMzMzMzIiwibGljZW5zZV9pZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsImRldmljZV9pZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJhY3RpdmF0aW9uX2lkIjoiNTU1NTU1NTUtNTU1NS00NTU1LTg1NTUtNTU1NTU1NTU1NTU1IiwibW9kZSI6InRpbWVkIiwiZmVhdHVyZXMiOlsiZXhwb3J0IiwicHJvIl0sIm1heF9kZXZpY2VzIjoyLCJpc3N1ZWRfYXQiOjE3OTEyNDQ4MDAsImV4cGlyZXNfYXQiOjE3OTEyNDY2MDAsInJ1bnRpbWVfcG9saWN5Ijp7Im9mZmxpbmVfbW9kZSI6ImxpbWl0ZWQiLCJoZWFydGJlYXRfc2Vjb25kcyI6NjAwLCJvZmZsaW5lX3NlY29uZHMiOjE4MDB9LCJjYXBhYmlsaXRpZXMiOnsibGljZW5zZV9tb2RlbCI6ImZsb2F0aW5nIiwic2Vzc2lvbl9leHBpcmVzX2F0IjoxNzkxMjQ2NjAwLCJsYXVuY2hfY29ubmVjdGlvbl9pZCI6Ijc3Nzc3Nzc3LTc3NzctNDc3Ny04Nzc3LTc3Nzc3Nzc3Nzc3NyIsImVudmlyb25tZW50IjoibGl2ZSIsImJpbmRpbmdfdmVyc2lvbiI6MX19",
+        "signature": "6qIpeHvsgbgIB1aLdDaVrVBwaCrEgeTl5yZi0rpftGDQrlbMbon1y1Xmn1FOg1ylDKTvA2Of5_c7n7bbnv6uCA"
+      },
+      "product_id": "33333333-3333-4333-8333-333333333333",
+      "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "now": 1791244900,
+      "valid": false
+    },
+    {
+      "name": "launch_floating_missing_binding",
+      "envelope": {
+        "version": 1,
+        "key_id": "11111111-1111-4111-8111-111111111111",
+        "payload": "eyJ2ZXJzaW9uIjoxLCJrZXlfaWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIiLCJwcm9kdWN0X2lkIjoiMzMzMzMzMzMtMzMzMy00MzMzLTgzMzMtMzMzMzMzMzMzMzMzIiwibGljZW5zZV9pZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsImRldmljZV9pZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJhY3RpdmF0aW9uX2lkIjoiNTU1NTU1NTUtNTU1NS00NTU1LTg1NTUtNTU1NTU1NTU1NTU1IiwibW9kZSI6InRpbWVkIiwiZmVhdHVyZXMiOlsiZXhwb3J0IiwicHJvIl0sIm1heF9kZXZpY2VzIjoyLCJpc3N1ZWRfYXQiOjE3OTEyNDQ4MDAsImV4cGlyZXNfYXQiOjE3OTEyNDY2MDAsInJ1bnRpbWVfcG9saWN5Ijp7Im9mZmxpbmVfbW9kZSI6ImxpbWl0ZWQiLCJoZWFydGJlYXRfc2Vjb25kcyI6NjAwLCJvZmZsaW5lX3NlY29uZHMiOjE4MDB9LCJjYXBhYmlsaXRpZXMiOnsibGljZW5zZV9tb2RlbCI6ImZsb2F0aW5nIiwic2Vzc2lvbl9pZCI6IjY2NjY2NjY2LTY2NjYtNDY2Ni04NjY2LTY2NjY2NjY2NjY2NiIsInNlc3Npb25fZXhwaXJlc19hdCI6MTc5MTI0NjYwMCwibGF1bmNoX2Nvbm5lY3Rpb25faWQiOiI3Nzc3Nzc3Ny03Nzc3LTQ3NzctODc3Ny03Nzc3Nzc3Nzc3NzciLCJlbnZpcm9ubWVudCI6ImxpdmUifX0",
+        "signature": "_YS-yZtXE3Ojw7kAiiHlb0to8-Pub4r-sR5xctNnpvvyYt4WCYYkIZMJKfgjcZUCAYjKWmoQbAlO-P4NEKzaAw"
+      },
+      "product_id": "33333333-3333-4333-8333-333333333333",
+      "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "now": 1791244900,
+      "valid": false
+    },
+    {
+      "name": "launch_floating_invalid_environment",
+      "envelope": {
+        "version": 1,
+        "key_id": "11111111-1111-4111-8111-111111111111",
+        "payload": "eyJ2ZXJzaW9uIjoxLCJrZXlfaWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIiLCJwcm9kdWN0X2lkIjoiMzMzMzMzMzMtMzMzMy00MzMzLTgzMzMtMzMzMzMzMzMzMzMzIiwibGljZW5zZV9pZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsImRldmljZV9pZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJhY3RpdmF0aW9uX2lkIjoiNTU1NTU1NTUtNTU1NS00NTU1LTg1NTUtNTU1NTU1NTU1NTU1IiwibW9kZSI6InRpbWVkIiwiZmVhdHVyZXMiOlsiZXhwb3J0IiwicHJvIl0sIm1heF9kZXZpY2VzIjoyLCJpc3N1ZWRfYXQiOjE3OTEyNDQ4MDAsImV4cGlyZXNfYXQiOjE3OTEyNDY2MDAsInJ1bnRpbWVfcG9saWN5Ijp7Im9mZmxpbmVfbW9kZSI6ImxpbWl0ZWQiLCJoZWFydGJlYXRfc2Vjb25kcyI6NjAwLCJvZmZsaW5lX3NlY29uZHMiOjE4MDB9LCJjYXBhYmlsaXRpZXMiOnsibGljZW5zZV9tb2RlbCI6ImZsb2F0aW5nIiwic2Vzc2lvbl9pZCI6IjY2NjY2NjY2LTY2NjYtNDY2Ni04NjY2LTY2NjY2NjY2NjY2NiIsInNlc3Npb25fZXhwaXJlc19hdCI6MTc5MTI0NjYwMCwibGF1bmNoX2Nvbm5lY3Rpb25faWQiOiI3Nzc3Nzc3Ny03Nzc3LTQ3NzctODc3Ny03Nzc3Nzc3Nzc3NzciLCJlbnZpcm9ubWVudCI6InRlc3QiLCJiaW5kaW5nX3ZlcnNpb24iOjF9fQ",
+        "signature": "AdB26aLTFL-4SZ99mlKIJO7n8HQD9vGsVvBS_dEbzg3sj-O8FbygiHDSs3AcW9w4Eol4XRBVO-YV1Yv1UjIPBQ"
+      },
+      "product_id": "33333333-3333-4333-8333-333333333333",
+      "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "now": 1791244900,
+      "valid": false
+    },
+    {
+      "name": "launch_floating_exceeds_seat_expiry",
+      "envelope": {
+        "version": 1,
+        "key_id": "11111111-1111-4111-8111-111111111111",
+        "payload": "eyJ2ZXJzaW9uIjoxLCJrZXlfaWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIiLCJwcm9kdWN0X2lkIjoiMzMzMzMzMzMtMzMzMy00MzMzLTgzMzMtMzMzMzMzMzMzMzMzIiwibGljZW5zZV9pZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsImRldmljZV9pZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJhY3RpdmF0aW9uX2lkIjoiNTU1NTU1NTUtNTU1NS00NTU1LTg1NTUtNTU1NTU1NTU1NTU1IiwibW9kZSI6InRpbWVkIiwiZmVhdHVyZXMiOlsiZXhwb3J0IiwicHJvIl0sIm1heF9kZXZpY2VzIjoyLCJpc3N1ZWRfYXQiOjE3OTEyNDQ4MDAsImV4cGlyZXNfYXQiOjE3OTEyNDY2MDAsInJ1bnRpbWVfcG9saWN5Ijp7Im9mZmxpbmVfbW9kZSI6ImxpbWl0ZWQiLCJoZWFydGJlYXRfc2Vjb25kcyI6NjAwLCJvZmZsaW5lX3NlY29uZHMiOjE4MDB9LCJjYXBhYmlsaXRpZXMiOnsibGljZW5zZV9tb2RlbCI6ImZsb2F0aW5nIiwic2Vzc2lvbl9pZCI6IjY2NjY2NjY2LTY2NjYtNDY2Ni04NjY2LTY2NjY2NjY2NjY2NiIsInNlc3Npb25fZXhwaXJlc19hdCI6MTc5MTI0NjU5OSwibGF1bmNoX2Nvbm5lY3Rpb25faWQiOiI3Nzc3Nzc3Ny03Nzc3LTQ3NzctODc3Ny03Nzc3Nzc3Nzc3NzciLCJlbnZpcm9ubWVudCI6ImxpdmUiLCJiaW5kaW5nX3ZlcnNpb24iOjF9fQ",
+        "signature": "v0ZQYGuhRASCMF2u2FVE_tot9RXOV_iMazGP8SGyhVpRZfPScei6NPbUB8ahP6ORULDIvghsqBny2xsJKVHKCg"
+      },
+      "product_id": "33333333-3333-4333-8333-333333333333",
+      "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "now": 1791244900,
+      "valid": false
+    },
+    {
+      "name": "launch_floating_no_heartbeat",
+      "envelope": {
+        "version": 1,
+        "key_id": "11111111-1111-4111-8111-111111111111",
+        "payload": "eyJ2ZXJzaW9uIjoxLCJrZXlfaWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIiLCJwcm9kdWN0X2lkIjoiMzMzMzMzMzMtMzMzMy00MzMzLTgzMzMtMzMzMzMzMzMzMzMzIiwibGljZW5zZV9pZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsImRldmljZV9pZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJhY3RpdmF0aW9uX2lkIjoiNTU1NTU1NTUtNTU1NS00NTU1LTg1NTUtNTU1NTU1NTU1NTU1IiwibW9kZSI6InRpbWVkIiwiZmVhdHVyZXMiOlsiZXhwb3J0IiwicHJvIl0sIm1heF9kZXZpY2VzIjoyLCJpc3N1ZWRfYXQiOjE3OTEyNDQ4MDAsImV4cGlyZXNfYXQiOjE3OTEyNDY2MDAsInJ1bnRpbWVfcG9saWN5Ijp7Im9mZmxpbmVfbW9kZSI6ImxpbWl0ZWQiLCJoZWFydGJlYXRfc2Vjb25kcyI6MCwib2ZmbGluZV9zZWNvbmRzIjoxODAwfSwiY2FwYWJpbGl0aWVzIjp7ImxpY2Vuc2VfbW9kZWwiOiJmbG9hdGluZyIsInNlc3Npb25faWQiOiI2NjY2NjY2Ni02NjY2LTQ2NjYtODY2Ni02NjY2NjY2NjY2NjYiLCJzZXNzaW9uX2V4cGlyZXNfYXQiOjE3OTEyNDY2MDAsImxhdW5jaF9jb25uZWN0aW9uX2lkIjoiNzc3Nzc3NzctNzc3Ny00Nzc3LTg3NzctNzc3Nzc3Nzc3Nzc3IiwiZW52aXJvbm1lbnQiOiJsaXZlIiwiYmluZGluZ192ZXJzaW9uIjoxfX0",
+        "signature": "rrozqsdq3-bEUUXGySABRjFnfUgSDa8-BoyATZKd-11QEikXO-ZHC4uwkGFcDbx5iJ13poQsByKfK6ls8nNMBg"
+      },
+      "product_id": "33333333-3333-4333-8333-333333333333",
+      "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "now": 1791244900,
+      "valid": false
+    },
+    {
+      "name": "launch_floating_permanent",
+      "envelope": {
+        "version": 1,
+        "key_id": "11111111-1111-4111-8111-111111111111",
+        "payload": "eyJ2ZXJzaW9uIjoxLCJrZXlfaWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIiLCJwcm9kdWN0X2lkIjoiMzMzMzMzMzMtMzMzMy00MzMzLTgzMzMtMzMzMzMzMzMzMzMzIiwibGljZW5zZV9pZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsImRldmljZV9pZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJhY3RpdmF0aW9uX2lkIjoiNTU1NTU1NTUtNTU1NS00NTU1LTg1NTUtNTU1NTU1NTU1NTU1IiwibW9kZSI6InRpbWVkIiwiZmVhdHVyZXMiOlsiZXhwb3J0IiwicHJvIl0sIm1heF9kZXZpY2VzIjoyLCJpc3N1ZWRfYXQiOjE3OTEyNDQ4MDAsImV4cGlyZXNfYXQiOjE3OTEyNDY2MDAsInJ1bnRpbWVfcG9saWN5Ijp7Im9mZmxpbmVfbW9kZSI6InBlcm1hbmVudCIsImhlYXJ0YmVhdF9zZWNvbmRzIjo2MDAsIm9mZmxpbmVfc2Vjb25kcyI6MH0sImNhcGFiaWxpdGllcyI6eyJsaWNlbnNlX21vZGVsIjoiZmxvYXRpbmciLCJzZXNzaW9uX2lkIjoiNjY2NjY2NjYtNjY2Ni00NjY2LTg2NjYtNjY2NjY2NjY2NjY2Iiwic2Vzc2lvbl9leHBpcmVzX2F0IjoxNzkxMjQ2NjAwLCJsYXVuY2hfY29ubmVjdGlvbl9pZCI6Ijc3Nzc3Nzc3LTc3NzctNDc3Ny04Nzc3LTc3Nzc3Nzc3Nzc3NyIsImVudmlyb25tZW50IjoibGl2ZSIsImJpbmRpbmdfdmVyc2lvbiI6MX19",
+        "signature": "eaQFsqd-4cNCNGUFHXy5fJ59kqYjsABXatxwBq6NjE0WB6jgphp-6ynrQ8GjBZfkVlcSMIfGcpKrvIIunS83Aw"
+      },
+      "product_id": "33333333-3333-4333-8333-333333333333",
+      "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "now": 1791244900,
+      "valid": false
+    },
+    {
+      "name": "launch_floating_offline_too_long",
+      "envelope": {
+        "version": 1,
+        "key_id": "11111111-1111-4111-8111-111111111111",
+        "payload": "eyJ2ZXJzaW9uIjoxLCJrZXlfaWQiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTQyMjItODIyMi0yMjIyMjIyMjIyMjIiLCJwcm9kdWN0X2lkIjoiMzMzMzMzMzMtMzMzMy00MzMzLTgzMzMtMzMzMzMzMzMzMzMzIiwibGljZW5zZV9pZCI6IjQ0NDQ0NDQ0LTQ0NDQtNDQ0NC04NDQ0LTQ0NDQ0NDQ0NDQ0NCIsImRldmljZV9pZCI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJhY3RpdmF0aW9uX2lkIjoiNTU1NTU1NTUtNTU1NS00NTU1LTg1NTUtNTU1NTU1NTU1NTU1IiwibW9kZSI6InRpbWVkIiwiZmVhdHVyZXMiOlsiZXhwb3J0IiwicHJvIl0sIm1heF9kZXZpY2VzIjoyLCJpc3N1ZWRfYXQiOjE3OTEyNDQ4MDAsImV4cGlyZXNfYXQiOjE3OTEyNDY2MDAsInJ1bnRpbWVfcG9saWN5Ijp7Im9mZmxpbmVfbW9kZSI6ImxpbWl0ZWQiLCJoZWFydGJlYXRfc2Vjb25kcyI6NjAwLCJvZmZsaW5lX3NlY29uZHMiOjg2NDAxfSwiY2FwYWJpbGl0aWVzIjp7ImxpY2Vuc2VfbW9kZWwiOiJmbG9hdGluZyIsInNlc3Npb25faWQiOiI2NjY2NjY2Ni02NjY2LTQ2NjYtODY2Ni02NjY2NjY2NjY2NjYiLCJzZXNzaW9uX2V4cGlyZXNfYXQiOjE3OTEyNDY2MDAsImxhdW5jaF9jb25uZWN0aW9uX2lkIjoiNzc3Nzc3NzctNzc3Ny00Nzc3LTg3NzctNzc3Nzc3Nzc3Nzc3IiwiZW52aXJvbm1lbnQiOiJsaXZlIiwiYmluZGluZ192ZXJzaW9uIjoxfX0",
+        "signature": "P1_G_WRr1JmpTGE3LFBj_z-bAcmWKyt4mT9Q1Z-ckS6DYk_KPP3QsFgsgteupT1Ffg6YD2WobQHn2s4J_hJmAQ"
+      },
+      "product_id": "33333333-3333-4333-8333-333333333333",
+      "device_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "now": 1791244900,
+      "valid": false
     }
   ]
 }

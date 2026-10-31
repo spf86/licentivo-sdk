@@ -139,7 +139,7 @@ func (c *Client) acceptCredential(out response) error {
 			return err
 		}
 	}
-	if !c.transferred() || c.auth.DeviceKey != "" {
+	if !c.transferred() || c.auth.DeviceKey != "" && out.DeviceKey == "" {
 		return nil
 	}
 	if len(out.DeviceKey) != 50 || !strings.HasPrefix(out.DeviceKey, "lv_dev_") {
