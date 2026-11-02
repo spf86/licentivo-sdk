@@ -7,6 +7,8 @@ Version 0.11.8 is distributed through the GitHub Release assets below. Check [pu
 Integrate license activation, signed feature permissions, device binding and
 usage limits into your own Go, Java, C, C++, C#, Python, Node.js, Rust or Ruby app.
 
+https://github.com/user-attachments/assets/3582fe89-537d-4903-a422-3325c3071b36
+
 Start with [QUICKSTART.md](QUICKSTART.md). Console Quickstart generates an
 English integration prompt with your product ID, trusted public keys and chosen
 language. Create a test license, integrate one real business operation and

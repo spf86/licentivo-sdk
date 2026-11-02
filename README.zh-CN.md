@@ -2,6 +2,8 @@
 
 [Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs.html#sdk) · [Source code](https://github.com/spf86/licentivo-sdk)
 
+https://github.com/user-attachments/assets/3582fe89-537d-4903-a422-3325c3071b36
+
 1. 在自己的项目中用包管理器安装 SDK 0.11.8。Go 只需运行 `go get github.com/spf86/licentivo-sdk@v0.11.8`；其他语言使用官网快速开始中的对应安装命令或构建依赖。无需下载解压 SDK 源码包或设置本地源码路径。
 2. 在控制台“产品”复制产品 ID，点击该产品的“签名公钥”，复制每一组密钥 ID、公钥，填入初始化代码的产品 ID 和受信公钥参数。快速接入也可以复制已填好的代码。
 3. SDK 默认连接官网，不需要下载配置文件或先发布 1.0.0 版本。客户授权码由软件激活窗口读取，传给初始化函数的授权码参数。
