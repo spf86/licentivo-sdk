@@ -7,6 +7,12 @@ Version 0.11.8 is distributed through the GitHub Release assets below. Check [pu
 Integrate license activation, signed feature permissions, device binding and
 usage limits into your own Go, Java, C, C++, C#, Python, Node.js, Rust or Ruby app.
 
+[Quick start](QUICKSTART.md) · [Installation](#install-in-your-application) · [Console screenshots](#console-screenshots)
+
+![English Licentivo workspace overview showing products, licensing policies, license counts and the setup checklist](docs/screenshots/workspace-overview-en.jpg)
+
+*Manage products, licensing policies and license status in one workspace.*
+
 https://github.com/user-attachments/assets/3582fe89-537d-4903-a422-3325c3071b36
 
 Start with [QUICKSTART.md](QUICKSTART.md). Console Quickstart generates an
@@ -34,6 +40,44 @@ needed. All commands below select SDK 0.11.8.
 
 Package installation installs the common library. Product ID and trusted public
 keys are supplied by your application initialization code below.
+
+## Console screenshots
+
+Explore the English Licentivo Console used to configure your SDK integration.
+The Console manages your products, licensing policies and test licenses;
+the SDK applies those settings inside your own application.
+
+### Guided SDK integration
+
+Create or select a product, define a policy and issue a test license. Quick start
+then generates an English integration prompt with your product ID, trusted
+public keys and selected language.
+
+![English Quick start wizard showing the four steps from creating a product to integrating and activating an application](docs/screenshots/quickstart-en.jpg)
+
+### License rules and device limits
+
+Choose trial, timed or perpetual licensing, use device binding or floating seats,
+and set a device / seat limit. This example shows a trial policy limited to one
+device.
+
+![English licensing policy editor showing a trial policy, device binding and a device limit of one](docs/screenshots/license-policy-en.jpg)
+
+### Heartbeats and offline access
+
+Set the heartbeat interval and how long an activated application can continue
+offline. This example uses a 600-second heartbeat and a one-hour offline window;
+license expiry still applies.
+
+![English offline policy settings showing scheduled heartbeats, a 600-second interval and a one-hour offline allowance](docs/screenshots/offline-policy-en.jpg)
+
+### Feature permissions and usage quotas
+
+Grant access to individual features and configure their usage limits. This
+example allows 500 export calls per month with overage disabled. Use
+`RunMeteredFeature` to connect metering to your real business operation.
+
+![English feature settings showing the export entitlement with 500 included calls, a monthly reset and overage disabled](docs/screenshots/feature-limits-en.jpg)
 
 ## Product settings in code
 
