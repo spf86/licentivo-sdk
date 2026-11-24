@@ -1,0 +1,45 @@
+{
+  "version": "0.11.9",
+  "release": "https://github.com/spf86/licentivo-sdk/releases/tag/v0.11.9",
+  "checked_at": "2026-11-24T05:22:38.7135203Z",
+  "all_six_completed": false,
+  "registry_count": 6,
+  "registries": {
+    "npm": {
+      "version": "0.11.9",
+      "url": "https://registry.npmjs.org/@licentivo%2Fsdk/0.11.9",
+      "published": false,
+      "http_status": 404
+    },
+    "pypi": {
+      "version": "0.11.9",
+      "url": "https://pypi.org/pypi/licentivo-sdk/0.11.9/json",
+      "published": false,
+      "http_status": 404
+    },
+    "nuget": {
+      "version": "0.11.9",
+      "url": "https://api.nuget.org/v3-flatcontainer/licentivo.sdk/0.11.9/licentivo.sdk.nuspec",
+      "published": false,
+      "http_status": 404
+    },
+    "ruby": {
+      "version": "0.11.9",
+      "url": "https://rubygems.org/api/v2/rubygems/licentivo-sdk/versions/0.11.9.json",
+      "published": false,
+      "http_status": 404
+    },
+    "crates": {
+      "version": "0.11.9",
+      "url": "https://crates.io/api/v1/crates/licentivo/0.11.9",
+      "published": false,
+      "http_status": 404
+    },
+    "maven": {
+      "version": "0.11.9",
+      "url": "https://repo.maven.apache.org/maven2/com/licentivo/licentivo-sdk/0.11.9/licentivo-sdk-0.11.9.pom",
+      "published": false,
+      "http_status": 404
+    }
+  }
+}

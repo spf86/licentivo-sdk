@@ -1,6 +1,8 @@
 # Licentivo Rust SDK
 
-[Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs.html#sdk) · [Source code](https://github.com/spf86/licentivo-sdk)
+[Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs/licensing-sdks/) · [Source code](https://github.com/spf86/licentivo-sdk)
+
+[crates.io package](https://crates.io/crates/licentivo) · [Rust API on docs.rs](https://docs.rs/crate/licentivo/latest)
 
 Add license activation and real feature permissions to your own application.
 The SDK handles requests, machine identity, pinned signatures, private credentials,
@@ -13,7 +15,7 @@ Requirements: Rust 1.77+, C11 compiler and libcurl development files (OpenSSL de
 Install the public SDK package in your existing application project:
 
 ```sh
-cargo add licentivo@=0.11.8
+cargo add licentivo@=0.11.9
 ```
 
 No SDK source download, extraction or local path dependency is required.

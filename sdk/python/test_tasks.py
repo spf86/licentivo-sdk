@@ -3,10 +3,12 @@ import multiprocessing
 import os
 import tempfile
 import threading
-import time
 import unittest
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import licentivo_tasks as tasks
 
@@ -44,6 +46,90 @@ class TaskClient:
     def cancel(self, reservation_id, operation_id):
         self.cancels += 1
         return dict(self.hold, status='canceled')
+
+
+class LeaseClock:
+    """Drive real renewal threads with virtual lease time, independent of I/O."""
+
+    def __init__(self):
+        self.current = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self.condition = threading.Condition()
+        self.wake = None
+        self.generation = self.stops = 0
+        self.stopped = self.ended = False
+        self.worker = None
+
+    def now(self, tz):
+        with self.condition:
+            return self.current
+
+    def wait(self, seconds):
+        with self.condition:
+            deadline = self.current + timedelta(seconds=seconds)
+            self.wake = deadline
+            self.generation += 1
+            self.condition.notify_all()
+            while not self.stopped and self.current < deadline:
+                self.condition.wait()
+            self.wake = None
+            return self.stopped
+
+    def set(self):
+        with self.condition:
+            self.stops += 1
+            self.stopped = True
+            self.condition.notify_all()
+
+    def thread(self, *, target, **kwargs):
+        def run():
+            try:
+                target()
+            finally:
+                with self.condition:
+                    self.ended = True
+                    self.wake = None
+                    self.condition.notify_all()
+        self.worker = threading.Thread(target=run, **kwargs)
+        return self.worker
+
+    def advance(self, seconds):
+        with self.condition:
+            target = self.current + timedelta(seconds=seconds)
+            while True:
+                if not self.condition.wait_for(lambda: self.wake is not None or self.ended, 10):
+                    raise AssertionError('renewal worker did not request a wait')
+                if self.ended or self.wake > target:
+                    self.current = target
+                    self.condition.notify_all()
+                    return
+                generation = self.generation
+                self.current = self.wake
+                self.wake = None
+                self.condition.notify_all()
+                if not self.condition.wait_for(lambda: self.generation != generation or self.ended, 10):
+                    raise AssertionError('renewal worker did not complete its turn')
+
+    def __enter__(self):
+        clock = Mock(wraps=datetime)
+        clock.now.side_effect = self.now
+        self.patches = ExitStack()
+        self.patches.enter_context(patch(__name__ + '.datetime', clock))
+        self.patches.enter_context(patch.object(tasks, 'datetime', clock))
+        scheduler = SimpleNamespace(Event=lambda: self, Thread=self.thread)
+        self.patches.enter_context(patch.object(tasks, 'threading', scheduler))
+        return self
+
+    def __exit__(self, *exc):
+        try:
+            with self.condition:
+                self.stopped = True
+                self.condition.notify_all()
+            if self.worker is not None and self.worker.ident is not None:
+                self.worker.join(10)
+                if self.worker.is_alive():
+                    raise AssertionError('renewal worker leaked')
+        finally:
+            self.patches.close()
 
 
 def shared_worker(directory, first, reserved, release, results):
@@ -168,13 +254,13 @@ class FeatureTaskTests(unittest.TestCase):
             self.assertEqual(calls, ['executed'])
 
     def test_long_business_renews_and_commits_without_reexecution(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, LeaseClock() as clock:
             client = TaskClient(directory, ttl=0.18)
             calls = []
 
             def action():
                 calls.append('executed')
-                time.sleep(0.6)
+                clock.advance(0.6)
 
             tasks.run(client, 'export', 1, 'long-job', action)
             tasks.run(client, 'export', 1, 'long-job', action)
@@ -183,22 +269,26 @@ class FeatureTaskTests(unittest.TestCase):
             self.assertGreater(client.reserves, 2)
             self.assertEqual(client.commits, 1)
             self.assertEqual(client.cancels, 0)
+            self.assertEqual(clock.stops, 1)
+            self.assertFalse(clock.worker.is_alive())
 
     def test_failed_business_stops_renewal_and_preserves_error(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, LeaseClock() as clock:
             client = TaskClient(directory, ttl=0.18)
 
             def action():
-                time.sleep(0.3)
+                clock.advance(0.3)
                 raise ValueError('business failed')
 
             with self.assertRaisesRegex(ValueError, 'business failed'):
                 tasks.run(client, 'export', 1, 'failed-job', action)
             reserves = client.reserves
-            time.sleep(0.2)
+            clock.advance(0.2)
             self.assertEqual(client.reserves, reserves, 'renewal thread leaked')
             self.assertEqual(client.cancels, 1)
             self.assertEqual(client.commits, 0)
+            self.assertEqual(clock.stops, 1)
+            self.assertFalse(clock.worker.is_alive())
 
     def test_resolution_cannot_cancel_another_clients_running_business(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -213,7 +303,7 @@ class FeatureTaskTests(unittest.TestCase):
             self.assertEqual(other.cancels, 0)
 
     def test_lost_renewals_keep_success_pending_without_reexecution(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, LeaseClock() as clock:
             client = TaskClient(directory, ttl=0.12)
             original = client.reserve
 
@@ -227,7 +317,7 @@ class FeatureTaskTests(unittest.TestCase):
 
             def action():
                 calls.append('executed')
-                time.sleep(0.25)
+                clock.advance(0.25)
 
             with self.assertRaisesRegex(RuntimeError, 'confirmation pending'):
                 tasks.run(client, 'export', 1, 'offline-job', action)
@@ -235,24 +325,37 @@ class FeatureTaskTests(unittest.TestCase):
                 tasks.run(client, 'export', 1, 'offline-job', action)
             self.assertEqual(calls, ['executed'])
             self.assertEqual(client.cancels, 0)
+            self.assertEqual(clock.stops, 1)
+            self.assertFalse(clock.worker.is_alive())
 
     def test_transient_renewal_error_recovers_after_original_deadline(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, LeaseClock() as clock:
             client = TaskClient(directory, ttl=0.3)
             original = client.reserve
-            attempts = []
+            attempts, calls = [], []
 
             def intermittent(*args):
-                attempts.append(True)
+                attempts.append(clock.current)
                 if len(attempts) == 3:
                     raise OSError('temporary network error')
                 return original(*args)
 
+            def action():
+                calls.append('executed')
+                original_deadline = datetime.fromisoformat(client.hold['expires_at'])
+                clock.advance(0.9)
+                self.assertGreater(clock.current, original_deadline)
+
             client.reserve = intermittent
-            tasks.run(client, 'export', 1, 'transient-job', lambda: time.sleep(0.9))
+            tasks.run(client, 'export', 1, 'transient-job', action)
+            tasks.run(client, 'export', 1, 'transient-job', action)
+            tasks.resolve(client, 'transient-job', True)
             self.assertGreater(len(attempts), 4)
+            self.assertEqual(calls, ['executed'])
             self.assertEqual(client.commits, 1)
             self.assertEqual(client.cancels, 0)
+            self.assertEqual(clock.stops, 1)
+            self.assertFalse(clock.worker.is_alive())
 
 
 if __name__ == '__main__':

@@ -1,6 +1,8 @@
 # Licentivo client SDKs
 
-[Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs.html#sdk) · [Source code](https://github.com/spf86/licentivo-sdk)
+[Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs/licensing-sdks/) · [Source code](https://github.com/spf86/licentivo-sdk)
+
+[Java package on Maven Central](https://central.sonatype.com/artifact/com.licentivo/licentivo-sdk) · [Rust package on crates.io](https://crates.io/crates/licentivo) · [Rust API on docs.rs](https://docs.rs/crate/licentivo/latest)
 
 Integrate license activation, signed feature permissions, device binding and
 usage limits into your own Go, Java, C, C++, C#, Python, Node.js, Rust or Ruby app.
@@ -15,18 +17,18 @@ described in [EXAMPLE.md](../EXAMPLE.md).
 
 Use the public package manager for your language. Run the command in your own
 application project; no source download, extraction or local path override is
-needed. All commands below select SDK 0.11.8.
+needed. All commands below select SDK 0.11.9.
 
 | Language | Install |
 | --- | --- |
-| Go | `go get github.com/spf86/licentivo-sdk@v0.11.8` |
-| Python | `python -m pip install "licentivo-sdk==0.11.8"` |
-| Node.js | `npm install @licentivo/sdk@0.11.8` |
-| C# | `dotnet add package Licentivo.SDK --version 0.11.8` |
-| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.8'` with Maven Central enabled; [Maven configuration](java/README.md) |
-| Rust | `cargo add licentivo@=0.11.8` |
-| Ruby | `gem install licentivo-sdk --version 0.11.8` |
-| C / C++ | Use the [automatic native package installer](https://www.licentivo.com/en/docs.html#sdk), then link `Licentivo::C` / `Licentivo::CPP`. |
+| Go | `go get github.com/spf86/licentivo-sdk@v0.11.9` |
+| Python | `python -m pip install "licentivo-sdk==0.11.9"` |
+| Node.js | `npm install @licentivo/sdk@0.11.9` |
+| C# | `dotnet add package Licentivo.SDK --version 0.11.9` |
+| Java | Gradle: `implementation 'com.licentivo:licentivo-sdk:0.11.9'` with Maven Central enabled; [Maven configuration](java/README.md) |
+| Rust | `cargo add licentivo@=0.11.9` |
+| Ruby | `gem install licentivo-sdk --version 0.11.9` |
+| C / C++ | Use the [automatic native package installer](https://www.licentivo.com/en/docs/licensing-sdks/), then link `Licentivo::C` / `Licentivo::CPP`. |
 
 Package installation installs the common library. Product ID and trusted public
 keys are supplied by your application initialization code below.
@@ -84,7 +86,7 @@ Go 1.26+, Java 17+, .NET 8+, Python 3.10+, Node.js 20+, Rust 1.77+ and Ruby 3.1+
 are supported. C/C++ use C11/C++17, CMake and libcurl development files. Rust and
 Ruby share that native core; on Windows use GNU/MinGW and matching libcurl, with
 LICENTIVO_CURL_ROOT set for native builds. Python desktop examples require Tk.
-SDK version: 0.11.8. Use the pinned package manager commands above.
+SDK version: 0.11.9. Use the pinned package manager commands above.
 
 Online errors expose a code and, when available, request ID/retry information.
 Present the reason to the user. Local status does not guarantee a later network

@@ -1,6 +1,52 @@
-//! High-level application licensing backed by the same verified core as C/C++.
-//! Keep one client alive while the application runs. Drop/close stops policy
-//! heartbeats and releases floating seats; normal exits retain device bindings.
+//! # Licentivo Rust SDK
+//!
+//! Add license activation, device binding and signed feature permissions to a
+//! Rust application with [Licentivo](https://www.licentivo.com/). The SDK handles
+//! requests, signature verification, private device credentials, policy
+//! heartbeats, permitted offline access, floating seats and metered operations.
+//! Your application supplies the activation input and protected business code.
+//!
+//! ## Install
+//!
+//! ```sh
+//! cargo add licentivo
+//! ```
+//!
+//! Requires Rust 1.77+, a C11 compiler and libcurl development files; Linux also
+//! needs OpenSSL development libraries. Windows builds use the GNU/MinGW target.
+//! See the [Rust integration guide](https://www.licentivo.com/en/guides/rust-software-licensing/)
+//! for platform setup and the [published crate](https://crates.io/crates/licentivo)
+//! for available versions.
+//!
+//! ## Protect an application operation
+//!
+//! Copy your product ID and every signing key ID/public key pair from the
+//! Licentivo console. Read the customer's license key from your activation UI.
+//!
+//! ```no_run
+//! use licentivo::{Client, Error};
+//!
+//! fn export_report(customer_key: &str) -> Result<(), Error> {
+//!     let trusted_keys = r#"{"YOUR_KEY_ID":"YOUR_PUBLIC_KEY"}"#;
+//!     let mut client = Client::open_product("YOUR_PRODUCT_ID", trusted_keys, customer_key)?;
+//!     client.run_feature("export", || {
+//!         std::fs::write("report.csv", "Your report\n")?;
+//!         Ok(())
+//!     })?;
+//!     Ok(())
+//! }
+//! ```
+//!
+//! Keep one client alive for the application lifetime. A denied feature does
+//! not run its callback. Drop/close stops policy heartbeats and attempts to
+//! return floating seats; ordinary shutdown retains device bindings. Restore
+//! saved credentials by passing an empty key for the same product and user.
+//! Metered operations require a stable job ID and durable business results;
+//! they are separate from ordinary feature checks.
+//!
+//! Follow the [SDK documentation](https://www.licentivo.com/en/docs/licensing-sdks/)
+//! for configuration and the [source repository](https://github.com/spf86/licentivo-sdk)
+//! for runnable examples. Vendor management API keys stay on your server.
 use serde_json::Value;
 use std::{ffi::{CStr, CString}, fmt, os::raw::{c_char, c_int, c_void}, path::Path,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe}, ptr::NonNull};

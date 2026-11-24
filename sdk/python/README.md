@@ -13,7 +13,7 @@ Requirements: Python 3.10+; Tk for the optional desktop application.
 Install the public SDK package in your existing application project:
 
 ```sh
-python -m pip install "licentivo-sdk==0.11.8"
+python -m pip install "licentivo-sdk==0.11.9"
 ```
 
 No SDK source download, extraction or local path dependency is required.
@@ -81,6 +81,6 @@ Network methods are synchronous; use a worker for GUI activation and refresh. AP
 
 Close with `close` at application shutdown. Do not distribute test activation
 keys, machine credentials, cached grants or vendor management API keys.
-See [QUICKSTART.md](https://www.licentivo.com/en/docs.html#quickstart) and the
-[small desktop example](https://www.licentivo.com/en/docs.html#example).
+See the [SDK installation and first activation guide](https://www.licentivo.com/en/docs/licensing-sdks/)
+and the [Python license validation tutorial](https://www.licentivo.com/en/guides/python-software-licensing/).
 MIT licensed; bundled dependencies retain their licenses (NOTICE).

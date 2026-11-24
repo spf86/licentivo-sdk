@@ -13,7 +13,7 @@ Requirements: Node.js 20+; use the desktop main process or a Node service.
 Install the public SDK package in your existing application project:
 
 ```sh
-npm install @licentivo/sdk@0.11.8
+npm install @licentivo/sdk@0.11.9
 ```
 
 No SDK source download, extraction or local path dependency is required.
@@ -70,6 +70,6 @@ This SDK needs native machine identity, so it runs in Node/Electron main process
 
 Close with `close` at application shutdown. Do not distribute test activation
 keys, machine credentials, cached grants or vendor management API keys.
-See [QUICKSTART.md](https://www.licentivo.com/en/docs.html#quickstart) and the
-[small desktop example](https://www.licentivo.com/en/docs.html#example).
+See the [SDK installation and first activation guide](https://www.licentivo.com/en/docs/licensing-sdks/)
+and the [Node.js and Electron licensing tutorial](https://www.licentivo.com/en/guides/javascript-software-licensing/).
 MIT licensed; bundled dependencies retain their licenses (NOTICE).

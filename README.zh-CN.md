@@ -1,10 +1,12 @@
 # 把授权接进自己的软件
 
+[0.11.9 更新说明](docs/releases/0.11.9.md) 记录了 Rust 接入示例与 Python 计次任务续期测试的变化。使用包管理器前，请查看[各注册表的发布状态](docs/releases/0.11.9-links.json)。
+
 [Website](https://www.licentivo.com/) · [Documentation](https://www.licentivo.com/en/docs.html#sdk) · [Source code](https://github.com/spf86/licentivo-sdk)
 
 https://github.com/user-attachments/assets/3582fe89-537d-4903-a422-3325c3071b36
 
-1. 在自己的项目中用包管理器安装 SDK 0.11.8。Go 只需运行 `go get github.com/spf86/licentivo-sdk@v0.11.8`；其他语言使用官网快速开始中的对应安装命令或构建依赖。无需下载解压 SDK 源码包或设置本地源码路径。
+1. 在自己的项目中用包管理器安装 SDK 0.11.9。Go 只需运行 `go get github.com/spf86/licentivo-sdk@v0.11.9`；其他语言使用官网快速开始中的对应安装命令或构建依赖。无需下载解压 SDK 源码包或设置本地源码路径。
 2. 在控制台“产品”复制产品 ID，点击该产品的“签名公钥”，复制每一组密钥 ID、公钥，填入初始化代码的产品 ID 和受信公钥参数。快速接入也可以复制已填好的代码。
 3. SDK 默认连接官网，不需要下载配置文件或先发布 1.0.0 版本。客户授权码由软件激活窗口读取，传给初始化函数的授权码参数。
 4. 把自己的实际业务函数传给 RunFeature。按钮、快捷键、菜单等所有入口都必须经过该检查；未授权时不执行回调。
