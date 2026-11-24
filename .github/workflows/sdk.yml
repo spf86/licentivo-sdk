@@ -262,9 +262,11 @@ jobs:
 
   windows:
     name: Build and link C and C++ on Windows MSVC
-    runs-on: windows-2025
+    runs-on: windows-2022
     timeout-minutes: 30
     env:
+      CMAKE_GENERATOR: Visual Studio 17 2022
+      CMAKE_GENERATOR_TOOLSET: v143
       VCPKG_DEFAULT_TRIPLET: x64-windows
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
